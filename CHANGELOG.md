@@ -1,8 +1,16 @@
 # Changelog
 
+## B1.1
+
+- Corregida la ayuda de categorías y comandos para mostrar siempre el prefijo temporal activo en usos y ejemplos.
+- Reconstruido desde cero todo el panel como una mini aplicación con dashboard, editor de jugador, trayectoria, centro de datos, backups, importación de archivos y modo minimizado.
+- Rediseñado el mercado de clubes para integrarlo con el nuevo sistema visual.
+- Añadido `update()` para comprobar e instalar una versión nueva desde GitHub sin volver a pegar el loader.
+- Añadido `update.json` como manifiesto ligero de la versión pública disponible.
+- Añadidos controles visuales para descargar e importar carreras JSON desde el panel.
+
 ## B1 — Beta 1
 
-- Añadido `update()` para comprobar e instalar una versión nueva desde GitHub sin volver a pegar el loader.
 - Añadido `setPrefix()` para renombrar temporalmente la API global durante la pestaña actual.
 - El logger, la ayuda y el manejador de errores adoptan inmediatamente el nuevo prefijo.
 - Añadida validación de identificadores reservados y protección contra sobrescritura de variables globales.

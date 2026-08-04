@@ -1,16 +1,37 @@
-const META={player:['PLAYER','Jugador'],seasons:['SEASONS','Temporadas'],stats:['STATS','Estadísticas'],trophies:['TROPHIES','Trofeos'],awards:['AWARDS','Premios'],clubs:['CLUBS','Clubes'],backups:['BACKUPS','Backups'],presets:['PRESETS','Presets'],data:['DATA','Datos'],runtime:['RUNTIME','Sistema'],core:['CORE','General']};
-const S={brand:'background:linear-gradient(90deg,#35e39a,#50c7f5);color:#031b14;border-radius:5px;padding:4px 9px;font-weight:950;font-size:13px',version:'color:#35e39a;font-weight:900',muted:'color:#7890aa',heading:'color:#f8fafc;font-weight:900;font-size:12px',command:'color:#50c7f5;font-family:monospace;font-weight:700',danger:'color:#fb7185;font-weight:850',chip:'background:#12243a;color:#9fb4ca;border-radius:3px;padding:2px 5px;font-weight:800'};
-export class HelpRenderer{
-  constructor(registry,config){this.registry=registry;this.config=config;}
-  overview(){
-    console.group('%c COPERO CAREER EDITOR %c v'+this.config.version,S.brand,S.version);
-    console.log('%cControl total de tu carrera, directamente desde la consola.\n%cAPI activa: %c'+this.config.prefix,S.muted,S.muted,S.command);
-    console.log('\n%cNAVEGACIÓN',S.heading);
-    for(const category of this.registry.categories()){const [code,label]=META[category]??[category.toUpperCase(),category];const count=this.registry.list(category).length;console.log(`%c ${code} %c ${label.padEnd(16)} %c${count} comandos  →  ${this.config.prefix}helpFor("${category}")`,S.chip,'color:#d9e5f1;font-weight:750',S.muted);}
-    console.log('\n%cINICIO RÁPIDO',S.heading);for(const example of [`${this.config.prefix}overall(99)`,`${this.config.prefix}player.set({ age: 24, position: "ST" })`,`${this.config.prefix}clubs.search("Barcelona")`,`${this.config.prefix}backup("antes")`,`${this.config.prefix}panel()`])console.log('%c› %c'+example,'color:#35e39a;font-weight:900',S.command);
-    console.log('\n%cTIP%c Usa %s para ver un comando en detalle.', 'background:#35e39a;color:#052218;border-radius:3px;padding:2px 5px;font-weight:900',S.muted,`${this.config.prefix}helpCommand("overall")`);
-    console.groupEnd();return undefined;
+const META = { player:['PLAYER','Jugador'], seasons:['SEASONS','Temporadas'], stats:['STATS','Estadísticas'], trophies:['TROPHIES','Trofeos'], awards:['AWARDS','Premios'], clubs:['CLUBS','Clubes'], backups:['BACKUPS','Backups'], presets:['PRESETS','Presets'], data:['DATA','Datos'], runtime:['RUNTIME','Sistema'], core:['CORE','General'] };
+const S = { brand:'background:linear-gradient(90deg,#35e39a,#50c7f5);color:#031b14;border-radius:5px;padding:4px 9px;font-weight:950;font-size:13px', version:'color:#35e39a;font-weight:900', muted:'color:#7890aa', heading:'color:#f8fafc;font-weight:900;font-size:12px', command:'color:#50c7f5;font-family:monospace;font-weight:700', danger:'color:#fb7185;font-weight:850', chip:'background:#12243a;color:#9fb4ca;border-radius:3px;padding:2px 5px;font-weight:800' };
+
+export class HelpRenderer {
+  constructor(registry, config) { this.registry = registry; this.config = config; }
+  syntax(value) { return String(value).replace(/\bcareerEditor\./g, () => this.config.prefix); }
+  overview() {
+    console.group('%c COPERO CAREER EDITOR %c v' + this.config.version, S.brand, S.version);
+    console.log('%cControl total de tu carrera, directamente desde la consola.\n%cAPI activa: %c' + this.config.prefix, S.muted, S.muted, S.command);
+    console.log('\n%cNAVEGACIÓN', S.heading);
+    for (const category of this.registry.categories()) {
+      const [code,label] = META[category] ?? [category.toUpperCase(),category]; const count = this.registry.list(category).length;
+      console.log(`%c ${code} %c ${label.padEnd(16)} %c${count} comandos  →  ${this.config.prefix}helpFor("${category}")`, S.chip, 'color:#d9e5f1;font-weight:750', S.muted);
+    }
+    console.log('\n%cINICIO RÁPIDO', S.heading);
+    for (const example of [`${this.config.prefix}overall(99)`,`${this.config.prefix}player.set({ age: 24, position: "ST" })`,`${this.config.prefix}clubs.search("Barcelona")`,`${this.config.prefix}backup("antes")`,`${this.config.prefix}panel()`]) console.log('%c› %c' + example, 'color:#35e39a;font-weight:900', S.command);
+    console.log('\n%cTIP%c Usa %s para ver un comando en detalle.', 'background:#35e39a;color:#052218;border-radius:3px;padding:2px 5px;font-weight:900', S.muted, `${this.config.prefix}helpCommand("overall")`);
+    console.groupEnd(); return undefined;
   }
-  category(name){const commands=this.registry.list(name);if(!commands.length)throw new Error(`Categoría desconocida: ${name}.`);const [,label]=META[name]??[name,name];console.group(`%c ${label.toUpperCase()} %c ${commands.length} comandos`,S.brand,S.muted);for(const item of commands){console.groupCollapsed(`%c${item.usage}%c  ${item.dangerous?'⚠ ':''}${item.description}`,S.command,item.dangerous?S.danger:S.muted);if(item.examples.length){console.log('%cEJEMPLOS',S.heading);for(const example of item.examples)console.log('%c› %c'+example,'color:#35e39a',S.command);}if(item.aliases.length)console.log('%cAliases:%c '+item.aliases.join(', '),S.muted,'color:#d9e5f1');console.groupEnd();}console.groupEnd();return commands;}
-  command(name){const item=this.registry.get(name);if(!item)throw new Error(`Comando desconocido: ${name}.`);console.group('%c COMMAND %c '+item.name,S.brand,S.heading);console.log('%c'+item.description,'color:#d9e5f1;font-size:12px');console.log('\n%cUSO\n%c'+item.usage,S.heading,S.command);if(item.examples.length){console.log('\n%cEJEMPLOS',S.heading);for(const example of item.examples)console.log('%c› %c'+example,'color:#35e39a',S.command);}if(item.aliases.length)console.log('\n%cALIASES%c  '+item.aliases.join(', '),S.heading,S.muted);if(item.dangerous)console.warn('%c⚠ OPERACIÓN PELIGROSA%c  Crea un backup antes de continuar.',S.danger,S.muted);console.groupEnd();return item;}
+  category(name) {
+    const commands = this.registry.list(name); if (!commands.length) throw new Error(`Categoría desconocida: ${name}.`); const [,label] = META[name] ?? [name,name];
+    console.group(`%c ${label.toUpperCase()} %c ${commands.length} comandos`, S.brand, S.muted);
+    for (const item of commands) {
+      console.groupCollapsed(`%c${this.syntax(item.usage)}%c  ${item.dangerous ? '⚠ ' : ''}${item.description}`, S.command, item.dangerous ? S.danger : S.muted);
+      if (item.examples.length) { console.log('%cEJEMPLOS', S.heading); for (const example of item.examples) console.log('%c› %c' + this.syntax(example), 'color:#35e39a', S.command); }
+      if (item.aliases.length) console.log('%cAliases:%c ' + item.aliases.join(', '), S.muted, 'color:#d9e5f1'); console.groupEnd();
+    }
+    console.groupEnd(); return commands;
+  }
+  command(name) {
+    const item = this.registry.get(name); if (!item) throw new Error(`Comando desconocido: ${name}.`);
+    console.group('%c COMMAND %c ' + item.name, S.brand, S.heading); console.log('%c' + item.description, 'color:#d9e5f1;font-size:12px'); console.log('\n%cUSO\n%c' + this.syntax(item.usage), S.heading, S.command);
+    if (item.examples.length) { console.log('\n%cEJEMPLOS', S.heading); for (const example of item.examples) console.log('%c› %c' + this.syntax(example), 'color:#35e39a', S.command); }
+    if (item.aliases.length) console.log('\n%cALIASES%c  ' + item.aliases.join(', '), S.heading, S.muted); if (item.dangerous) console.warn('%c⚠ OPERACIÓN PELIGROSA%c  Crea un backup antes de continuar.', S.danger, S.muted);
+    console.groupEnd(); return item;
+  }
 }
