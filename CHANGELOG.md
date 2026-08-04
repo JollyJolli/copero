@@ -1,10 +1,13 @@
 # Changelog
 
-## 3.2.0
+## B1 — Beta 1
 
 - Añadido `setPrefix()` para renombrar temporalmente la API global durante la pestaña actual.
 - El logger, la ayuda y el manejador de errores adoptan inmediatamente el nuevo prefijo.
 - Añadida validación de identificadores reservados y protección contra sobrescritura de variables globales.
+- Rediseñados el panel general, el selector de clubes, la ayuda y los mensajes de consola.
+- Primera beta pública; se advierte que todavía puede contener numerosos bugs.
+- Añadido el canal de contacto [@kuikilod](https://x.com/kuikilod) para reportes y sugerencias.
 
 ## 3.1.1
 

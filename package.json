@@ -1,6 +1,6 @@
 {
   "name": "copero-career-editor",
-  "version": "3.2.0",
+  "version": "3.2.0-beta.1",
   "type": "module",
   "private": true,
   "scripts": {

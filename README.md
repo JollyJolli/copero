@@ -1,6 +1,9 @@
-# Copero Career Editor 3.2.0
+# Copero Career Editor B1 (Beta 1)
 
 Editor modular para modificar localmente una partida abierta del Career Simulator de Copero. Actúa sobre el estado React de la pestaña; no modifica servidores. Haz un backup antes de experimentar y evita importar estados que no sean tuyos.
+
+> [!WARNING]
+> **Esta es una versión beta y todavía contiene muchos bugs.** Crea backups frecuentes y úsala bajo tu responsabilidad. Si encuentras cualquier problema, comportamiento extraño o tienes una sugerencia, escríbeme en X (Twitter): [@kuikilod](https://x.com/kuikilod).
 
 ## Instalación y loader
 

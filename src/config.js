@@ -1,5 +1,5 @@
 export const CONFIG = {
-  prefix: 'careerEditor.', version: '3.2.0', globalName: null,
+  prefix: 'careerEditor.', version: 'B1', globalName: null,
   maxHistoryEntries: 50, autoBackupOnInstall: true, safeMode: true,
   debug: false, maxReactNodes: 15000
 };
