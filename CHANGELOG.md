@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.1.1
+
+- Corregida la colisión entre `careerEditor.player(...)` y `careerEditor.player.name(...)`.
+- Añadido un manejador central avanzado para errores de instalación y comandos.
+- Añadida una API mínima de diagnóstico cuando el arranque no puede completarse.
+- Añadidos IDs de error, causas probables y pasos de recuperación.
+
 ## 3.0.0
 
 - Arquitectura modular y build con esbuild.

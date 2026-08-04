@@ -8,7 +8,7 @@
   // src/config.js
   var CONFIG = {
     prefix: "careerEditor.",
-    version: "3.0.0",
+    version: "3.1.1",
     globalName: null,
     maxHistoryEntries: 50,
     autoBackupOnInstall: true,
@@ -23,7 +23,7 @@
   }
 
   // src/core/runtime.js
-  var createRuntime = () => ({ installedAt: (/* @__PURE__ */ new Date()).toISOString(), lastLocator: null, watcherTimer: null, freezes: /* @__PURE__ */ new Map(), panelHost: null });
+  var createRuntime = () => ({ installedAt: (/* @__PURE__ */ new Date()).toISOString(), lastLocator: null, lastError: null, watcherTimer: null, freezes: /* @__PURE__ */ new Map(), panelHost: null });
 
   // src/core/logger.js
   var Logger = class {
@@ -113,9 +113,9 @@
     return score;
   }
   var ReactLocator = class {
-    constructor(config, runtime2) {
+    constructor(config, runtime) {
       this.config = config;
-      this.runtime = runtime2;
+      this.runtime = runtime;
     }
     fiber(node) {
       const key = node && Object.keys(node).find((k) => ["__reactFiber$", "__reactInternalInstance$", "__reactContainer$"].some((p) => k.startsWith(p)));
@@ -195,8 +195,8 @@
 
   // src/core/backup-manager.js
   var BackupManager = class {
-    constructor(stateManager2) {
-      this.stateManager = stateManager2;
+    constructor(stateManager) {
+      this.stateManager = stateManager;
       this.store = /* @__PURE__ */ new Map();
     }
     create(name) {
@@ -223,11 +223,11 @@
 
   // src/core/state-manager.js
   var StateManager = class {
-    constructor(locator2, validator2, history, logger2) {
-      this.locator = locator2;
-      this.validator = validator2;
+    constructor(locator, validator, history, logger) {
+      this.locator = locator;
+      this.validator = validator;
       this.history = history;
-      this.logger = logger2;
+      this.logger = logger;
       this.connection = null;
     }
     refreshConnection() {
@@ -298,26 +298,90 @@
 
   // src/core/command-handler.js
   var CommandHandler = class {
-    constructor(registry2, context2) {
-      this.registry = registry2;
-      this.context = context2;
+    constructor(registry, context) {
+      this.registry = registry;
+      this.context = context;
     }
     run(name, ...args) {
-      try {
+      return this.context.errorHandler.guard(name, () => {
         const command2 = this.registry.get(name);
         if (!command2) throw new Error(`Comando desconocido: ${name}. Usa ${this.context.config.prefix}help.`);
         command2.validate(args, this.context);
         return command2.execute(this.context, ...args);
+      });
+    }
+  };
+
+  // src/core/error-handler.js
+  function normalizeError(value) {
+    if (value instanceof Error) return value;
+    if (typeof value === "string") return new Error(value);
+    try {
+      return new Error(JSON.stringify(value));
+    } catch {
+      return new Error(String(value));
+    }
+  }
+  function likelyCause(error, phase) {
+    const message = error.message.toLowerCase();
+    if (message.includes("read only property") || message.includes("readonly")) return "Una propiedad protegida del navegador entr\xF3 en conflicto con la API.";
+    if (message.includes("estado react") || message.includes("react")) return "La partida no est\xE1 abierta, React est\xE1 en transici\xF3n o cambi\xF3 su estructura interna.";
+    if (message.includes("json")) return "El texto importado no es JSON v\xE1lido o no contiene una partida compatible.";
+    if (message.includes("club") || message.includes("oferta")) return "El club no fue verificado o el evento no contiene una plantilla compatible.";
+    if (phase === "install") return "La API no pudo construirse. Puede ser una versi\xF3n antigua en cach\xE9 o una incompatibilidad.";
+    return "El comando recibi\xF3 datos inv\xE1lidos o el estado cambi\xF3 mientras se ejecutaba.";
+  }
+  var ErrorHandler = class {
+    constructor(config, runtime) {
+      this.config = config;
+      this.runtime = runtime;
+    }
+    capture(value, details = {}) {
+      const error = normalizeError(value);
+      const report = { id: `CEE-${Date.now().toString(36).toUpperCase()}`, editorVersion: this.config.version, phase: details.phase ?? "command", command: details.command ?? null, message: error.message, likelyCause: likelyCause(error, details.phase), recovery: details.recovery ?? [`${this.config.prefix}diagnose()`, `${this.config.prefix}refresh()`, "Recarga la p\xE1gina y ejecuta de nuevo el loader."], timestamp: (/* @__PURE__ */ new Date()).toISOString(), stack: this.config.debug ? error.stack : void 0 };
+      this.runtime.lastError = report;
+      console.group(`%c[${this.config.prefix.replace(/\.+$/, "")}] Error ${report.id}`, "color:#ef4444;font-weight:900");
+      console.error("Qu\xE9 fall\xF3:", report.command ? `Comando ${report.command}` : "Instalaci\xF3n del editor");
+      console.error("Mensaje:", report.message);
+      console.warn("Causa probable:", report.likelyCause);
+      console.info("C\xF3mo recuperarte:");
+      for (const step of report.recovery) console.info(`\u2022 ${step}`);
+      if (report.stack) console.debug(report.stack);
+      console.groupEnd();
+      return report;
+    }
+    guard(command2, action) {
+      try {
+        return action();
       } catch (error) {
-        this.context.logger.error(`Fall\xF3 ${name}. Prueba ${this.context.config.prefix}diagnose().`, this.context.config.debug ? error : error.message);
+        this.capture(error, { phase: "command", command: command2 });
         return void 0;
       }
     }
   };
+  function installFailureApi(globalObject, globalName, config, report) {
+    const api = { __coperoCareerEditor: true, installationFailed: true, version: config.version, prefix: config.prefix, error: report, diagnose() {
+      console.table(report);
+      return report;
+    }, destroy() {
+      try {
+        delete globalObject[globalName];
+      } catch {
+        globalObject[globalName] = void 0;
+      }
+      return true;
+    } };
+    try {
+      Object.defineProperty(globalObject, globalName, { value: api, configurable: true, writable: true });
+    } catch {
+      globalObject[globalName] = api;
+    }
+    return api;
+  }
 
   // src/modules/helpers.js
-  function command(registry2, data) {
-    return registry2.register({ examples: [], aliases: [], dangerous: false, validate: () => {
+  function command(registry, data) {
+    return registry.register({ examples: [], aliases: [], dangerous: false, validate: () => {
     }, ...data });
   }
   function resolveSeasonIndexes(state, selector = "last") {
@@ -355,17 +419,17 @@
 
   // src/modules/player.js
   var aliases = { ovr: "overall", rating: "overall", price: "marketValue", value: "marketValue", name: "lastName", surname: "lastName", number: "preferredNumber", foot: "preferredFoot", team: "currentTeamId" };
-  function normalizePlayerPatch(input, validator2, safe = true) {
-    validator2.patch(input, "player");
+  function normalizePlayerPatch(input, validator, safe = true) {
+    validator.patch(input, "player");
     const patch = { ...input };
     for (const [alias, canonical] of Object.entries(aliases)) {
       if (alias in patch && !(canonical in patch)) patch[canonical] = patch[alias];
       delete patch[alias];
     }
-    if ("overall" in patch) patch.overall = validator2.number(patch.overall, "overall", safe ? { integer: true, min: 1, max: 99 } : { integer: true });
-    if ("age" in patch) patch.age = validator2.number(patch.age, "age", { integer: true, min: 0, ...safe ? { max: 100 } : {} });
-    if ("preferredNumber" in patch) patch.preferredNumber = validator2.number(patch.preferredNumber, "dorsal", { integer: true, min: 1, max: 99 });
-    if ("marketValue" in patch) patch.marketValue = validator2.number(patch.marketValue, "valor", { min: 0 });
+    if ("overall" in patch) patch.overall = validator.number(patch.overall, "overall", safe ? { integer: true, min: 1, max: 99 } : { integer: true });
+    if ("age" in patch) patch.age = validator.number(patch.age, "age", { integer: true, min: 0, ...safe ? { max: 100 } : {} });
+    if ("preferredNumber" in patch) patch.preferredNumber = validator.number(patch.preferredNumber, "dorsal", { integer: true, min: 1, max: 99 });
+    if ("marketValue" in patch) patch.marketValue = validator.number(patch.marketValue, "valor", { min: 0 });
     if ("preferredFoot" in patch) {
       patch.preferredFoot = String(patch.preferredFoot).toLowerCase();
       if (safe && !["left", "right"].includes(patch.preferredFoot)) throw new Error("Pie inv\xE1lido.");
@@ -374,44 +438,44 @@
     for (const key of ["lastName", "currentTeamId"]) if (key in patch) patch[key] = String(patch[key]);
     return patch;
   }
-  function registerPlayer(registry2) {
-    command(registry2, { name: "player.set", category: "player", description: "Actualiza el jugador.", usage: "careerEditor.player.set({...})", aliases: ["player"], execute: ({ stateManager: stateManager2, validator: validator2, config }, patch) => stateManager2.mutate("Jugador actualizado", (draft) => {
+  function registerPlayer(registry) {
+    command(registry, { name: "player.set", category: "player", description: "Actualiza el jugador.", usage: "careerEditor.player.set({...})", aliases: ["player"], execute: ({ stateManager, validator, config }, patch) => stateManager.mutate("Jugador actualizado", (draft) => {
       if (!draft.player) throw new Error("La partida no tiene jugador.");
-      const normalized2 = normalizePlayerPatch(patch, validator2, config.safeMode);
+      const normalized2 = normalizePlayerPatch(patch, validator, config.safeMode);
       draft.player = { ...draft.player, ...normalized2 };
       if ("currentTeamId" in normalized2) {
         draft.currentTeamId = normalized2.currentTeamId;
         if (draft.contractTeamId != null) draft.contractTeamId = normalized2.currentTeamId;
       }
     }) });
-    for (const [name, field] of Object.entries({ overall: "overall", price: "marketValue", age: "age", name: "lastName", number: "preferredNumber", foot: "preferredFoot", position: "position", team: "currentTeamId" })) command(registry2, { name: `player.${name}`, category: "player", description: `Cambia ${field}.`, usage: `careerEditor.player.${name}(value)`, aliases: [name], execute: (ctx, value, options = {}) => {
+    for (const [name, field] of Object.entries({ overall: "overall", price: "marketValue", age: "age", name: "lastName", number: "preferredNumber", foot: "preferredFoot", position: "position", team: "currentTeamId" })) command(registry, { name: `player.${name}`, category: "player", description: `Cambia ${field}.`, usage: `careerEditor.player.${name}(value)`, aliases: [name], execute: (ctx, value, options = {}) => {
       const result = ctx.registry.get("player.set").execute(ctx, { [field]: value });
       if (options.lastSeason && ctx.stateManager.get().seasons.length) ctx.registry.get("seasons.edit").execute(ctx, "last", { [field === "currentTeamId" ? "teamId" : field]: value });
       return result;
     } });
-    command(registry2, { name: "player.get", category: "player", description: "Obtiene el jugador.", usage: "careerEditor.player.get()", execute: ({ stateManager: stateManager2 }) => structuredClone(stateManager2.get().player) });
+    command(registry, { name: "player.get", category: "player", description: "Obtiene el jugador.", usage: "careerEditor.player.get()", execute: ({ stateManager }) => structuredClone(stateManager.get().player) });
   }
 
   // src/modules/seasons.js
-  function registerSeasons(registry2) {
-    command(registry2, { name: "seasons.get", category: "seasons", description: "Obtiene temporadas.", usage: "careerEditor.seasons.get(3)", execute: ({ stateManager: stateManager2 }, selector = "all") => {
-      const state = stateManager2.get();
+  function registerSeasons(registry) {
+    command(registry, { name: "seasons.get", category: "seasons", description: "Obtiene temporadas.", usage: "careerEditor.seasons.get(3)", execute: ({ stateManager }, selector = "all") => {
+      const state = stateManager.get();
       return resolveSeasonIndexes(state, selector).map((i) => structuredClone(state.seasons[i]));
     } });
-    command(registry2, { name: "seasons.edit", category: "seasons", description: "Edita temporadas.", usage: "careerEditor.seasons.edit(3,{...})", aliases: ["season"], execute: ({ stateManager: stateManager2, validator: validator2 }, selector, patch) => {
-      validator2.patch(patch, "temporada");
-      return stateManager2.mutate("Temporada actualizada", (draft) => {
+    command(registry, { name: "seasons.edit", category: "seasons", description: "Edita temporadas.", usage: "careerEditor.seasons.edit(3,{...})", aliases: ["season"], execute: ({ stateManager, validator }, selector, patch) => {
+      validator.patch(patch, "temporada");
+      return stateManager.mutate("Temporada actualizada", (draft) => {
         for (const i of resolveSeasonIndexes(draft, selector)) draft.seasons[i] = { ...draft.seasons[i], ...structuredClone(patch), stats: patch.stats ? { ...draft.seasons[i].stats, ...patch.stats } : draft.seasons[i].stats };
       });
     } });
-    command(registry2, { name: "seasons.last", category: "seasons", description: "Obtiene o edita la \xFAltima.", usage: "careerEditor.seasons.last({...})", aliases: ["lastSeason"], execute: (ctx, patch) => patch === void 0 ? ctx.registry.get("seasons.get").execute(ctx, "last")[0] : ctx.registry.get("seasons.edit").execute(ctx, "last", patch) });
-    command(registry2, { name: "seasons.all", category: "seasons", description: "Edita todas.", usage: "careerEditor.allSeasons({...})", aliases: ["allSeasons"], execute: (ctx, patch) => ctx.registry.get("seasons.edit").execute(ctx, "all", patch) });
-    command(registry2, { name: "seasons.table", category: "seasons", description: "Tabla de temporadas.", usage: "careerEditor.seasons.table()", execute: ({ stateManager: stateManager2 }) => {
-      const rows = stateManager2.get().seasons.map((s, i) => ({ season: i + 1, age: s.age, team: s.teamId, overall: s.overall, marketValue: s.marketValue, appearances: s.stats?.appearances ?? 0, goals: s.stats?.goals ?? 0, assists: s.stats?.assists ?? 0, trophies: s.trophies?.length ?? 0, awards: s.awards?.length ?? 0 }));
+    command(registry, { name: "seasons.last", category: "seasons", description: "Obtiene o edita la \xFAltima.", usage: "careerEditor.seasons.last({...})", aliases: ["lastSeason"], execute: (ctx, patch) => patch === void 0 ? ctx.registry.get("seasons.get").execute(ctx, "last")[0] : ctx.registry.get("seasons.edit").execute(ctx, "last", patch) });
+    command(registry, { name: "seasons.all", category: "seasons", description: "Edita todas.", usage: "careerEditor.allSeasons({...})", aliases: ["allSeasons"], execute: (ctx, patch) => ctx.registry.get("seasons.edit").execute(ctx, "all", patch) });
+    command(registry, { name: "seasons.table", category: "seasons", description: "Tabla de temporadas.", usage: "careerEditor.seasons.table()", execute: ({ stateManager }) => {
+      const rows = stateManager.get().seasons.map((s, i) => ({ season: i + 1, age: s.age, team: s.teamId, overall: s.overall, marketValue: s.marketValue, appearances: s.stats?.appearances ?? 0, goals: s.stats?.goals ?? 0, assists: s.stats?.assists ?? 0, trophies: s.trophies?.length ?? 0, awards: s.awards?.length ?? 0 }));
       console.table(rows);
       return rows;
     } });
-    command(registry2, { name: "seasons.compare", category: "seasons", description: "Compara temporadas.", usage: "careerEditor.seasons.compare(3,5)", execute: (ctx, a, b) => {
+    command(registry, { name: "seasons.compare", category: "seasons", description: "Compara temporadas.", usage: "careerEditor.seasons.compare(3,5)", execute: (ctx, a, b) => {
       const rows = [a, b].map((x) => ctx.registry.get("seasons.get").execute(ctx, x)[0]);
       console.table(rows);
       return rows;
@@ -420,36 +484,36 @@
 
   // src/modules/stats.js
   var keys = ["appearances", "goals", "assists", "cleanSheets", "goalsConceded", "trophies", "awards"];
-  function normalized(patch, validator2) {
-    validator2.patch(patch, "estad\xEDsticas");
+  function normalized(patch, validator) {
+    validator.patch(patch, "estad\xEDsticas");
     return Object.fromEntries(Object.entries(patch).map(([k, v]) => {
       if (!keys.includes(k)) throw new Error(`Estad\xEDstica desconocida: ${k}.`);
-      return [k, validator2.number(v, k, { integer: true, min: 0 })];
+      return [k, validator.number(v, k, { integer: true, min: 0 })];
     }));
   }
-  function registerStats(registry2) {
-    command(registry2, { name: "stats.get", category: "stats", description: "Obtiene totales.", usage: "careerEditor.stats.get()", execute: ({ stateManager: stateManager2 }) => structuredClone(stateManager2.get().totals) });
-    command(registry2, { name: "stats.set", category: "stats", description: "Reemplaza totales indicados.", usage: "careerEditor.stats.set({...})", aliases: ["totals"], execute: ({ stateManager: stateManager2, validator: validator2 }, patch) => stateManager2.mutate("Totales actualizados", (d) => {
-      d.totals = { ...d.totals, ...normalized(patch, validator2) };
+  function registerStats(registry) {
+    command(registry, { name: "stats.get", category: "stats", description: "Obtiene totales.", usage: "careerEditor.stats.get()", execute: ({ stateManager }) => structuredClone(stateManager.get().totals) });
+    command(registry, { name: "stats.set", category: "stats", description: "Reemplaza totales indicados.", usage: "careerEditor.stats.set({...})", aliases: ["totals"], execute: ({ stateManager, validator }, patch) => stateManager.mutate("Totales actualizados", (d) => {
+      d.totals = { ...d.totals, ...normalized(patch, validator) };
     }) });
-    command(registry2, { name: "stats.add", category: "stats", description: "Suma a totales.", usage: "careerEditor.stats.add({...})", execute: ({ stateManager: stateManager2, validator: validator2 }, patch) => stateManager2.mutate("Totales incrementados", (d) => {
-      for (const [k, v] of Object.entries(normalized(patch, validator2))) d.totals[k] = (Number(d.totals[k]) || 0) + v;
+    command(registry, { name: "stats.add", category: "stats", description: "Suma a totales.", usage: "careerEditor.stats.add({...})", execute: ({ stateManager, validator }, patch) => stateManager.mutate("Totales incrementados", (d) => {
+      for (const [k, v] of Object.entries(normalized(patch, validator))) d.totals[k] = (Number(d.totals[k]) || 0) + v;
     }) });
-    command(registry2, { name: "stats.recalculate", category: "stats", description: "Recalcula desde temporadas.", usage: "careerEditor.stats.recalculate()", aliases: ["recalculateTotals"], execute: ({ stateManager: stateManager2 }) => stateManager2.mutate("Totales recalculados", (d) => {
+    command(registry, { name: "stats.recalculate", category: "stats", description: "Recalcula desde temporadas.", usage: "careerEditor.stats.recalculate()", aliases: ["recalculateTotals"], execute: ({ stateManager }) => stateManager.mutate("Totales recalculados", (d) => {
       d.totals = recalculateTotals(d);
     }) });
-    command(registry2, { name: "stats.lastSeason", category: "stats", description: "Edita estad\xEDsticas de \xFAltima temporada.", usage: "careerEditor.stats.lastSeason({...})", execute: (ctx, patch) => ctx.registry.get("seasons.edit").execute(ctx, "last", { stats: normalized(patch, ctx.validator) }) });
+    command(registry, { name: "stats.lastSeason", category: "stats", description: "Edita estad\xEDsticas de \xFAltima temporada.", usage: "careerEditor.stats.lastSeason({...})", execute: (ctx, patch) => ctx.registry.get("seasons.edit").execute(ctx, "last", { stats: normalized(patch, ctx.validator) }) });
   }
 
   // src/modules/trophies.js
   var TROPHIES = ["league", "cup", "continental_primary", "continental_secondary", "club_world_cup", "national_continental", "world_cup"];
   var AWARDS = ["ballon_dor", "golden_boot", "golden_glove"];
-  function registerCollection(registry2, plural, singular, known, legacyAdd, legacyRemove) {
-    command(registry2, { name: `${plural}.add`, category: plural, description: `A\xF1ade ${singular}.`, usage: `careerEditor.${plural}.add(id)`, aliases: [legacyAdd], execute: ({ stateManager: stateManager2, config }, id, options = {}) => {
+  function registerCollection(registry, plural, singular, known, legacyAdd, legacyRemove) {
+    command(registry, { name: `${plural}.add`, category: plural, description: `A\xF1ade ${singular}.`, usage: `careerEditor.${plural}.add(id)`, aliases: [legacyAdd], execute: ({ stateManager, config }, id, options = {}) => {
       id = String(id);
       if (config.safeMode && !known.includes(id)) throw new Error(`${singular} desconocido: ${id}.`);
       const amount = Number(options.amount ?? 1);
-      return stateManager2.mutate(`${singular} a\xF1adido`, (d) => {
+      return stateManager.mutate(`${singular} a\xF1adido`, (d) => {
         for (const i of resolveSeasonIndexes(d, options.season ?? "last")) {
           const list = d.seasons[i][plural] ??= [];
           for (let n = 0; n < amount; n++) if (options.allowDuplicates || !list.includes(id)) list.push(id);
@@ -457,31 +521,31 @@
         d.totals = recalculateTotals(d);
       });
     } });
-    command(registry2, { name: `${plural}.remove`, category: plural, description: `Elimina ${singular}.`, usage: `careerEditor.${plural}.remove(id)`, aliases: [legacyRemove], execute: ({ stateManager: stateManager2 }, id, selector = "last") => stateManager2.mutate(`${singular} eliminado`, (d) => {
+    command(registry, { name: `${plural}.remove`, category: plural, description: `Elimina ${singular}.`, usage: `careerEditor.${plural}.remove(id)`, aliases: [legacyRemove], execute: ({ stateManager }, id, selector = "last") => stateManager.mutate(`${singular} eliminado`, (d) => {
       for (const i of resolveSeasonIndexes(d, selector)) d.seasons[i][plural] = (d.seasons[i][plural] ?? []).filter((x) => x !== id);
       d.totals = recalculateTotals(d);
     }) });
-    command(registry2, { name: `${plural}.set`, category: plural, description: `Fija cantidad de ${singular}.`, usage: `careerEditor.${plural}.set(id,n)`, execute: (ctx, id, amount, selector = "last") => {
+    command(registry, { name: `${plural}.set`, category: plural, description: `Fija cantidad de ${singular}.`, usage: `careerEditor.${plural}.set(id,n)`, execute: (ctx, id, amount, selector = "last") => {
       ctx.registry.get(`${plural}.remove`).execute(ctx, id, selector);
       return ctx.registry.get(`${plural}.add`).execute(ctx, id, { amount, season: selector, allowDuplicates: true });
     } });
-    command(registry2, { name: `${plural}.list`, category: plural, description: `Lista ${plural}.`, usage: `careerEditor.${plural}.list()`, execute: ({ stateManager: stateManager2 }) => stateManager2.get().seasons.flatMap((s) => s[plural] ?? []) });
-    command(registry2, { name: `${plural}.count`, category: plural, description: `Cuenta ${plural}.`, usage: `careerEditor.${plural}.count()`, execute: (ctx) => ctx.registry.get(`${plural}.list`).execute(ctx).reduce((m, id) => ({ ...m, [id]: (m[id] ?? 0) + 1 }), {}) });
-    command(registry2, { name: `${plural}.clear`, category: plural, description: `Borra ${plural}.`, usage: `careerEditor.${plural}.clear()`, dangerous: true, execute: ({ stateManager: stateManager2 }) => stateManager2.mutate(`${plural} eliminados`, (d) => {
+    command(registry, { name: `${plural}.list`, category: plural, description: `Lista ${plural}.`, usage: `careerEditor.${plural}.list()`, execute: ({ stateManager }) => stateManager.get().seasons.flatMap((s) => s[plural] ?? []) });
+    command(registry, { name: `${plural}.count`, category: plural, description: `Cuenta ${plural}.`, usage: `careerEditor.${plural}.count()`, execute: (ctx) => ctx.registry.get(`${plural}.list`).execute(ctx).reduce((m, id) => ({ ...m, [id]: (m[id] ?? 0) + 1 }), {}) });
+    command(registry, { name: `${plural}.clear`, category: plural, description: `Borra ${plural}.`, usage: `careerEditor.${plural}.clear()`, dangerous: true, execute: ({ stateManager }) => stateManager.mutate(`${plural} eliminados`, (d) => {
       for (const s of d.seasons) s[plural] = [];
       d.totals = recalculateTotals(d);
     }) });
   }
-  function registerTrophies(registry2) {
-    registerCollection(registry2, "trophies", "trofeo", TROPHIES, "addTrophy", "removeTrophy");
-    registerCollection(registry2, "awards", "premio", AWARDS, "addAward", "removeAward");
+  function registerTrophies(registry) {
+    registerCollection(registry, "trophies", "trofeo", TROPHIES, "addTrophy", "removeTrophy");
+    registerCollection(registry, "awards", "premio", AWARDS, "addAward", "removeAward");
   }
 
   // src/modules/clubs.js
   var CLUB_KEYS = ["teamId", "clubId", "currentTeamId", "targetTeamId"];
   var ClubCatalog = class {
-    constructor(stateManager2) {
-      this.stateManager = stateManager2;
+    constructor(stateManager) {
+      this.stateManager = stateManager;
       this.clubs = /* @__PURE__ */ new Map();
     }
     add(value) {
@@ -537,41 +601,41 @@
     else state.currentEvent.options[source.index] = copy;
     return copy;
   }
-  function registerClubs(registry2, catalog2) {
-    command(registry2, { name: "clubs.list", category: "clubs", description: "Lista clubes descubiertos.", usage: "careerEditor.clubs.list()", execute: (_, filters) => {
-      catalog2.refresh();
-      const rows = catalog2.list(filters);
+  function registerClubs(registry, catalog) {
+    command(registry, { name: "clubs.list", category: "clubs", description: "Lista clubes descubiertos.", usage: "careerEditor.clubs.list()", execute: (_, filters) => {
+      catalog.refresh();
+      const rows = catalog.list(filters);
       console.table(rows);
       return rows;
     } });
-    command(registry2, { name: "clubs.search", category: "clubs", description: "Busca clubes.", usage: 'careerEditor.clubs.search("Barcelona")', execute: (_, query) => {
-      catalog2.refresh();
-      const rows = catalog2.search(query);
+    command(registry, { name: "clubs.search", category: "clubs", description: "Busca clubes.", usage: 'careerEditor.clubs.search("Barcelona")', execute: (_, query) => {
+      catalog.refresh();
+      const rows = catalog.search(query);
       console.table(rows);
       return rows;
     } });
-    command(registry2, { name: "clubs.current", category: "clubs", description: "Club actual.", usage: "careerEditor.clubs.current()", execute: ({ stateManager: stateManager2 }) => {
-      catalog2.refresh();
-      return catalog2.getById(stateManager2.get().player?.currentTeamId ?? stateManager2.get().currentTeamId);
+    command(registry, { name: "clubs.current", category: "clubs", description: "Club actual.", usage: "careerEditor.clubs.current()", execute: ({ stateManager }) => {
+      catalog.refresh();
+      return catalog.getById(stateManager.get().player?.currentTeamId ?? stateManager.get().currentTeamId);
     } });
-    command(registry2, { name: "clubs.offers", category: "clubs", description: "Ofertas actuales.", usage: "careerEditor.clubs.offers()", execute: ({ stateManager: stateManager2 }) => compatibleOffers(stateManager2.get()).map(({ option, index, key }) => ({ number: index + 1, clubId: option[key], option })) });
-    for (const [name, add] of [["replaceOffer", false], ["addOffer", true]]) command(registry2, { name: `clubs.${name}`, category: "clubs", description: `${add ? "A\xF1ade" : "Reemplaza"} una oferta clonada.`, usage: `careerEditor.clubs.${name}(${add ? "" : "1,"}"club")`, execute: ({ stateManager: stateManager2 }, first, second) => {
-      catalog2.refresh();
+    command(registry, { name: "clubs.offers", category: "clubs", description: "Ofertas actuales.", usage: "careerEditor.clubs.offers()", execute: ({ stateManager }) => compatibleOffers(stateManager.get()).map(({ option, index, key }) => ({ number: index + 1, clubId: option[key], option })) });
+    for (const [name, add] of [["replaceOffer", false], ["addOffer", true]]) command(registry, { name: `clubs.${name}`, category: "clubs", description: `${add ? "A\xF1ade" : "Reemplaza"} una oferta clonada.`, usage: `careerEditor.clubs.${name}(${add ? "" : "1,"}"club")`, execute: ({ stateManager }, first, second) => {
+      catalog.refresh();
       const id = add ? first : second;
-      const club = catalog2.getById(id);
+      const club = catalog.getById(id);
       if (!club) throw new Error(`Club no verificado: ${id}. Usa careerEditor.clubs.search().`);
       let result;
-      stateManager2.mutate(`Oferta ${add ? "a\xF1adida" : "reemplazada"}`, (d) => {
+      stateManager.mutate(`Oferta ${add ? "a\xF1adida" : "reemplazada"}`, (d) => {
         result = replaceOfferState(d, add ? 1 : first, club, add);
       });
       return result;
     } });
-    command(registry2, { name: "clubs.removeOffer", category: "clubs", description: "Elimina una oferta.", usage: "careerEditor.clubs.removeOffer(2)", dangerous: true, execute: ({ stateManager: stateManager2 }, number) => stateManager2.mutate("Oferta eliminada", (d) => {
+    command(registry, { name: "clubs.removeOffer", category: "clubs", description: "Elimina una oferta.", usage: "careerEditor.clubs.removeOffer(2)", dangerous: true, execute: ({ stateManager }, number) => stateManager.mutate("Oferta eliminada", (d) => {
       const i = Number(number) - 1;
       if (!d.currentEvent?.options?.[i]) throw new Error("Oferta inexistente.");
       d.currentEvent.options.splice(i, 1);
     }) });
-    command(registry2, { name: "clubs.choose", category: "clubs", description: "Prepara una oferta para elegirla en la UI.", usage: 'careerEditor.clubs.choose("club")', execute: (ctx, id, options = {}) => {
+    command(registry, { name: "clubs.choose", category: "clubs", description: "Prepara una oferta para elegirla en la UI.", usage: 'careerEditor.clubs.choose("club")', execute: (ctx, id, options = {}) => {
       const strategy = options.strategy ?? "auto";
       const result = strategy === "add" ? ctx.registry.get("clubs.addOffer").execute(ctx, id) : ctx.registry.get("clubs.replaceOffer").execute(ctx, options.offer ?? 1, id);
       ctx.logger.info("Oferta preparada. Pulsa la opci\xF3n en la interfaz original.");
@@ -580,21 +644,21 @@
   }
 
   // src/modules/import-export.js
-  function registerImportExport(registry2) {
-    command(registry2, { name: "export", category: "data", description: "Exporta JSON.", usage: "careerEditor.export()", execute: async ({ stateManager: stateManager2, config }, options = {}) => {
-      const value = options.legacy ? stateManager2.snapshot() : { editorVersion: config.version, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), gameState: stateManager2.snapshot() };
+  function registerImportExport(registry) {
+    command(registry, { name: "export", category: "data", description: "Exporta JSON.", usage: "careerEditor.export()", execute: async ({ stateManager, config }, options = {}) => {
+      const value = options.legacy ? stateManager.snapshot() : { editorVersion: config.version, exportedAt: (/* @__PURE__ */ new Date()).toISOString(), gameState: stateManager.snapshot() };
       const json = JSON.stringify(value, null, options.pretty === false ? 0 : 2);
       if (options.copy !== false && navigator.clipboard?.writeText) await navigator.clipboard.writeText(json);
       return json;
     } });
-    command(registry2, { name: "import", category: "data", description: "Importa estado.", usage: "careerEditor.import(json)", dangerous: true, execute: ({ stateManager: stateManager2, validator: validator2 }, input) => {
+    command(registry, { name: "import", category: "data", description: "Importa estado.", usage: "careerEditor.import(json)", dangerous: true, execute: ({ stateManager, validator }, input) => {
       const parsed = typeof input === "string" ? JSON.parse(input) : input;
       const state = parsed?.gameState ?? parsed;
-      if (!validator2.gameState(state)) throw new Error("La importaci\xF3n no contiene un estado v\xE1lido.");
-      return stateManager2.replace("Partida importada", state);
+      if (!validator.gameState(state)) throw new Error("La importaci\xF3n no contiene un estado v\xE1lido.");
+      return stateManager.replace("Partida importada", state);
     } });
-    command(registry2, { name: "download", category: "data", description: "Descarga JSON.", usage: "careerEditor.download()", execute: async (ctx, filename = `career-${Date.now()}.json`) => {
-      const json = await registry2.get("export").execute(ctx, { copy: false });
+    command(registry, { name: "download", category: "data", description: "Descarga JSON.", usage: "careerEditor.download()", execute: async (ctx, filename = `career-${Date.now()}.json`) => {
+      const json = await registry.get("export").execute(ctx, { copy: false });
       const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
       const a = document.createElement("a");
       a.href = url;
@@ -607,25 +671,25 @@
 
   // src/modules/presets.js
   var initial = /* @__PURE__ */ new Map([["wonderkid", { overall: 80, age: 18 }], ["elite", { overall: 90 }], ["goat", { overall: 99 }], ["realistic", { overall: 85 }]]);
-  function registerPresets(registry2) {
-    command(registry2, { name: "presets.list", category: "presets", description: "Lista presets.", usage: "careerEditor.presets.list()", execute: () => [...initial.keys()] });
-    command(registry2, { name: "presets.apply", category: "presets", description: "Aplica preset solo al jugador.", usage: 'careerEditor.presets.apply("goat")', execute: (ctx, name) => {
+  function registerPresets(registry) {
+    command(registry, { name: "presets.list", category: "presets", description: "Lista presets.", usage: "careerEditor.presets.list()", execute: () => [...initial.keys()] });
+    command(registry, { name: "presets.apply", category: "presets", description: "Aplica preset solo al jugador.", usage: 'careerEditor.presets.apply("goat")', execute: (ctx, name) => {
       const patch = initial.get(name);
       if (!patch) throw new Error("Preset desconocido.");
       return ctx.registry.get("player.set").execute(ctx, patch);
     } });
-    command(registry2, { name: "presets.create", category: "presets", description: "Crea preset.", usage: 'careerEditor.presets.create("x",{...})', execute: ({ validator: validator2 }, name, patch) => {
-      validator2.patch(patch);
+    command(registry, { name: "presets.create", category: "presets", description: "Crea preset.", usage: 'careerEditor.presets.create("x",{...})', execute: ({ validator }, name, patch) => {
+      validator.patch(patch);
       initial.set(String(name), structuredClone(patch));
       return name;
     } });
-    command(registry2, { name: "presets.remove", category: "presets", description: "Elimina preset.", usage: 'careerEditor.presets.remove("x")', execute: (_, name) => initial.delete(String(name)) });
+    command(registry, { name: "presets.remove", category: "presets", description: "Elimina preset.", usage: 'careerEditor.presets.remove("x")', execute: (_, name) => initial.delete(String(name)) });
   }
 
   // src/core/paths.js
-  var getAtPath = (root, path, validator2) => validator2.path(path).reduce((v, key) => v?.[key], root);
-  function setAtPath(root, path, value, validator2) {
-    const parts = validator2.path(path);
+  var getAtPath = (root, path, validator) => validator.path(path).reduce((v, key) => v?.[key], root);
+  function setAtPath(root, path, value, validator) {
+    const parts = validator.path(path);
     let cursor = root;
     for (let i = 0; i < parts.length - 1; i++) {
       const key = parts[i];
@@ -634,8 +698,8 @@
     }
     cursor[parts.at(-1)] = value;
   }
-  function deleteAtPath(root, path, validator2) {
-    const parts = validator2.path(path);
+  function deleteAtPath(root, path, validator) {
+    const parts = validator.path(path);
     let cursor = root;
     for (const key2 of parts.slice(0, -1)) {
       cursor = cursor?.[key2];
@@ -649,32 +713,32 @@
   }
 
   // src/modules/watcher.js
-  function registerWatcher(registry2) {
-    command(registry2, { name: "watch", category: "runtime", description: "Observa cambios.", usage: "careerEditor.watch()", execute: ({ runtime: runtime2, stateManager: stateManager2, logger: logger2 }, ms = 1e3) => {
-      clearInterval(runtime2.watcherTimer);
-      let prior = JSON.stringify(stateManager2.get());
-      runtime2.watcherTimer = setInterval(() => {
+  function registerWatcher(registry) {
+    command(registry, { name: "watch", category: "runtime", description: "Observa cambios.", usage: "careerEditor.watch()", execute: ({ runtime, stateManager, logger }, ms = 1e3) => {
+      clearInterval(runtime.watcherTimer);
+      let prior = JSON.stringify(stateManager.get());
+      runtime.watcherTimer = setInterval(() => {
         try {
-          const next = JSON.stringify(stateManager2.get());
-          if (next !== prior) logger2.info("Cambio detectado");
+          const next = JSON.stringify(stateManager.get());
+          if (next !== prior) logger.info("Cambio detectado");
           prior = next;
         } catch {
         }
       }, Math.max(250, Number(ms)));
       return true;
     } });
-    command(registry2, { name: "unwatch", category: "runtime", description: "Detiene watcher.", usage: "careerEditor.unwatch()", execute: ({ runtime: runtime2 }) => {
-      clearInterval(runtime2.watcherTimer);
-      runtime2.watcherTimer = null;
+    command(registry, { name: "unwatch", category: "runtime", description: "Detiene watcher.", usage: "careerEditor.unwatch()", execute: ({ runtime }) => {
+      clearInterval(runtime.watcherTimer);
+      runtime.watcherTimer = null;
       return true;
     } });
-    command(registry2, { name: "freeze", category: "runtime", description: "Congela ruta.", usage: 'careerEditor.freeze("player.overall",99)', execute: ({ runtime: runtime2, stateManager: stateManager2, validator: validator2 }, path, value) => {
-      validator2.path(path);
-      if (runtime2.freezes.has(path)) clearInterval(runtime2.freezes.get(path));
-      runtime2.freezes.set(path, setInterval(() => {
+    command(registry, { name: "freeze", category: "runtime", description: "Congela ruta.", usage: 'careerEditor.freeze("player.overall",99)', execute: ({ runtime, stateManager, validator }, path, value) => {
+      validator.path(path);
+      if (runtime.freezes.has(path)) clearInterval(runtime.freezes.get(path));
+      runtime.freezes.set(path, setInterval(() => {
         try {
-          if (getAtPath(stateManager2.get(), path, validator2) !== value) stateManager2.mutate(`Freeze ${path}`, (d) => {
-            const parts = validator2.path(path);
+          if (getAtPath(stateManager.get(), path, validator) !== value) stateManager.mutate(`Freeze ${path}`, (d) => {
+            const parts = validator.path(path);
             let c = d;
             for (const k of parts.slice(0, -1)) c = c[k];
             c[parts.at(-1)] = structuredClone(value);
@@ -684,68 +748,68 @@
       }, 1e3));
       return true;
     } });
-    command(registry2, { name: "unfreeze", category: "runtime", description: "Descongela ruta.", usage: "careerEditor.unfreeze(path)", execute: ({ runtime: runtime2 }, path) => {
-      clearInterval(runtime2.freezes.get(path));
-      return runtime2.freezes.delete(path);
+    command(registry, { name: "unfreeze", category: "runtime", description: "Descongela ruta.", usage: "careerEditor.unfreeze(path)", execute: ({ runtime }, path) => {
+      clearInterval(runtime.freezes.get(path));
+      return runtime.freezes.delete(path);
     } });
-    command(registry2, { name: "unfreezeAll", category: "runtime", description: "Detiene freezes.", usage: "careerEditor.unfreezeAll()", execute: ({ runtime: runtime2 }) => {
-      for (const timer of runtime2.freezes.values()) clearInterval(timer);
-      runtime2.freezes.clear();
+    command(registry, { name: "unfreezeAll", category: "runtime", description: "Detiene freezes.", usage: "careerEditor.unfreezeAll()", execute: ({ runtime }) => {
+      for (const timer of runtime.freezes.values()) clearInterval(timer);
+      runtime.freezes.clear();
       return true;
     } });
   }
 
   // src/modules/core-commands.js
-  function registerCore(registry2, help2, panels2) {
-    command(registry2, { name: "inspect", category: "core", description: "Copia estado.", usage: "careerEditor.inspect()", execute: ({ stateManager: stateManager2 }) => stateManager2.snapshot() });
-    command(registry2, { name: "summary", category: "core", description: "Resumen.", usage: "careerEditor.summary()", execute: ({ stateManager: stateManager2 }) => {
-      const s = stateManager2.get();
+  function registerCore(registry, help, panels) {
+    command(registry, { name: "inspect", category: "core", description: "Copia estado.", usage: "careerEditor.inspect()", execute: ({ stateManager }) => stateManager.snapshot() });
+    command(registry, { name: "summary", category: "core", description: "Resumen.", usage: "careerEditor.summary()", execute: ({ stateManager }) => {
+      const s = stateManager.get();
       const v = { phase: s.phase, step: s.step, player: s.player, seasons: s.seasons.length, totals: s.totals, currentEvent: s.currentEvent ? { id: s.currentEvent.id, type: s.currentEvent.type, options: s.currentEvent.options?.length } : null };
       console.log(v);
       return v;
     } });
-    command(registry2, { name: "set", category: "core", description: "Modifica ruta.", usage: "careerEditor.set(path,value)", execute: ({ stateManager: stateManager2, validator: validator2 }, path, value) => stateManager2.mutate(`Ruta modificada: ${path}`, (d) => setAtPath(d, path, clone(value), validator2)) });
-    command(registry2, { name: "merge", category: "core", description: "Fusiona objeto.", usage: "careerEditor.merge(path,patch)", execute: ({ stateManager: stateManager2, validator: validator2 }, path, patch) => stateManager2.mutate(`Ruta fusionada: ${path}`, (d) => {
-      validator2.patch(patch);
-      const current = getAtPath(d, path, validator2);
-      validator2.patch(current);
-      setAtPath(d, path, { ...current, ...clone(patch) }, validator2);
+    command(registry, { name: "set", category: "core", description: "Modifica ruta.", usage: "careerEditor.set(path,value)", execute: ({ stateManager, validator }, path, value) => stateManager.mutate(`Ruta modificada: ${path}`, (d) => setAtPath(d, path, clone(value), validator)) });
+    command(registry, { name: "merge", category: "core", description: "Fusiona objeto.", usage: "careerEditor.merge(path,patch)", execute: ({ stateManager, validator }, path, patch) => stateManager.mutate(`Ruta fusionada: ${path}`, (d) => {
+      validator.patch(patch);
+      const current = getAtPath(d, path, validator);
+      validator.patch(current);
+      setAtPath(d, path, { ...current, ...clone(patch) }, validator);
     }) });
-    command(registry2, { name: "remove", category: "core", description: "Elimina ruta.", usage: "careerEditor.remove(path)", dangerous: true, execute: ({ stateManager: stateManager2, validator: validator2, config }, path) => {
-      if (config.safeMode && ["phase", "seed", "player", "seasons", "totals"].includes(validator2.path(path)[0])) throw new Error("Modo seguro bloquea eliminar una propiedad esencial.");
-      return stateManager2.mutate(`Ruta eliminada: ${path}`, (d) => {
-        if (!deleteAtPath(d, path, validator2)) throw new Error("La ruta no existe.");
+    command(registry, { name: "remove", category: "core", description: "Elimina ruta.", usage: "careerEditor.remove(path)", dangerous: true, execute: ({ stateManager, validator, config }, path) => {
+      if (config.safeMode && ["phase", "seed", "player", "seasons", "totals"].includes(validator.path(path)[0])) throw new Error("Modo seguro bloquea eliminar una propiedad esencial.");
+      return stateManager.mutate(`Ruta eliminada: ${path}`, (d) => {
+        if (!deleteAtPath(d, path, validator)) throw new Error("La ruta no existe.");
       });
     } });
-    command(registry2, { name: "backup", category: "backups", description: "Crea backup.", usage: "careerEditor.backup(name)", execute: ({ backupManager: backupManager2 }, name = timestampName()) => backupManager2.create(name) });
-    command(registry2, { name: "restore", category: "backups", description: "Restaura backup.", usage: "careerEditor.restore(name)", dangerous: true, execute: ({ backupManager: backupManager2 }, name = "original") => backupManager2.restore(name) });
-    command(registry2, { name: "deleteBackup", category: "backups", description: "Elimina backup.", usage: "careerEditor.deleteBackup(name)", dangerous: true, execute: ({ backupManager: backupManager2 }, name) => backupManager2.remove(name) });
-    command(registry2, { name: "undo", category: "backups", description: "Deshace.", usage: "careerEditor.undo()", execute: ({ stateManager: stateManager2, historyManager: historyManager2 }) => stateManager2.replace("Deshacer", historyManager2.undo(stateManager2.get()), { history: false }) });
-    command(registry2, { name: "redo", category: "backups", description: "Rehace.", usage: "careerEditor.redo()", execute: ({ stateManager: stateManager2, historyManager: historyManager2 }) => stateManager2.replace("Rehacer", historyManager2.redo(stateManager2.get()), { history: false }) });
-    command(registry2, { name: "safeMode", category: "core", description: "Configura modo seguro.", usage: "careerEditor.safeMode(true)", execute: ({ config }, value) => config.safeMode = Boolean(value) });
-    command(registry2, { name: "validate", category: "core", description: "Valida estado.", usage: "careerEditor.validate()", execute: ({ stateManager: stateManager2 }) => stateManager2.validate(stateManager2.get()) });
-    command(registry2, { name: "repair", category: "core", description: "Repara \xFAnicamente colecciones seguras.", usage: "careerEditor.repair()", execute: ({ stateManager: stateManager2 }) => stateManager2.mutate("Reparaci\xF3n segura", (d) => {
+    command(registry, { name: "backup", category: "backups", description: "Crea backup.", usage: "careerEditor.backup(name)", execute: ({ backupManager }, name = timestampName()) => backupManager.create(name) });
+    command(registry, { name: "restore", category: "backups", description: "Restaura backup.", usage: "careerEditor.restore(name)", dangerous: true, execute: ({ backupManager }, name = "original") => backupManager.restore(name) });
+    command(registry, { name: "deleteBackup", category: "backups", description: "Elimina backup.", usage: "careerEditor.deleteBackup(name)", dangerous: true, execute: ({ backupManager }, name) => backupManager.remove(name) });
+    command(registry, { name: "undo", category: "backups", description: "Deshace.", usage: "careerEditor.undo()", execute: ({ stateManager, historyManager }) => stateManager.replace("Deshacer", historyManager.undo(stateManager.get()), { history: false }) });
+    command(registry, { name: "redo", category: "backups", description: "Rehace.", usage: "careerEditor.redo()", execute: ({ stateManager, historyManager }) => stateManager.replace("Rehacer", historyManager.redo(stateManager.get()), { history: false }) });
+    command(registry, { name: "safeMode", category: "core", description: "Configura modo seguro.", usage: "careerEditor.safeMode(true)", execute: ({ config }, value) => config.safeMode = Boolean(value) });
+    command(registry, { name: "validate", category: "core", description: "Valida estado.", usage: "careerEditor.validate()", execute: ({ stateManager }) => stateManager.validate(stateManager.get()) });
+    command(registry, { name: "repair", category: "core", description: "Repara \xFAnicamente colecciones seguras.", usage: "careerEditor.repair()", execute: ({ stateManager }) => stateManager.mutate("Reparaci\xF3n segura", (d) => {
       d.seasons ??= [];
       d.totals ??= {};
       d.log ??= [];
     }) });
-    command(registry2, { name: "refresh", category: "runtime", description: "Relocaliza React.", usage: "careerEditor.refresh()", execute: ({ stateManager: stateManager2 }) => stateManager2.refreshConnection() });
-    command(registry2, { name: "diagnose", category: "runtime", description: "Diagn\xF3stico.", usage: "careerEditor.diagnose()", execute: ({ runtime: runtime2, historyManager: historyManager2, backupManager: backupManager2 }) => {
-      const v = { locator: runtime2.lastLocator, history: historyManager2.list(), backups: backupManager2.list(), panelOpen: Boolean(runtime2.panelHost) };
+    command(registry, { name: "refresh", category: "runtime", description: "Relocaliza React.", usage: "careerEditor.refresh()", execute: ({ stateManager }) => stateManager.refreshConnection() });
+    command(registry, { name: "diagnose", category: "runtime", description: "Diagn\xF3stico.", usage: "careerEditor.diagnose()", execute: ({ runtime, historyManager, backupManager }) => {
+      const v = { locator: runtime.lastLocator, history: historyManager.list(), backups: backupManager.list(), panelOpen: Boolean(runtime.panelHost) };
       console.log(v);
       return v;
     } });
-    command(registry2, { name: "helpFor", category: "core", description: "Ayuda de categor\xEDa.", usage: "careerEditor.helpFor(category)", execute: (_, name) => help2.category(name) });
-    command(registry2, { name: "helpCommand", category: "core", description: "Ayuda de comando.", usage: "careerEditor.helpCommand(name)", execute: (_, name) => help2.command(name) });
-    command(registry2, { name: "panel", category: "runtime", description: "Abre panel.", usage: "careerEditor.panel()", execute: (ctx) => panels2.open(ctx) });
-    command(registry2, { name: "closePanel", category: "runtime", description: "Cierra panel.", usage: "careerEditor.closePanel()", execute: (ctx) => panels2.close(ctx) });
+    command(registry, { name: "helpFor", category: "core", description: "Ayuda de categor\xEDa.", usage: "careerEditor.helpFor(category)", execute: (_, name) => help.category(name) });
+    command(registry, { name: "helpCommand", category: "core", description: "Ayuda de comando.", usage: "careerEditor.helpCommand(name)", execute: (_, name) => help.command(name) });
+    command(registry, { name: "panel", category: "runtime", description: "Abre panel.", usage: "careerEditor.panel()", execute: (ctx) => panels.open(ctx) });
+    command(registry, { name: "closePanel", category: "runtime", description: "Cierra panel.", usage: "careerEditor.closePanel()", execute: (ctx) => panels.close(ctx) });
   }
 
   // src/help/help-renderer.js
   var icons = { player: "\u{1F464}", seasons: "\u{1F4C5}", trophies: "\u{1F3C6}", awards: "\u{1F947}", clubs: "\u{1F3DF}\uFE0F", backups: "\u{1F4BE}", stats: "\u{1F4CA}", data: "\u{1F4E6}", runtime: "\u2699\uFE0F", presets: "\u2728", core: "\u{1F9F0}" };
   var HelpRenderer = class {
-    constructor(registry2, config) {
-      this.registry = registry2;
+    constructor(registry, config) {
+      this.registry = registry;
       this.config = config;
     }
     overview() {
@@ -780,31 +844,31 @@
   var PANEL_CSS = `:host{all:initial}.panel{position:fixed;right:20px;top:20px;z-index:2147483647;width:360px;max-height:80vh;overflow:auto;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:12px;padding:16px;font:14px system-ui;box-shadow:0 20px 50px #0008}button,input,select{font:inherit}button{background:#22c55e;border:0;border-radius:7px;padding:7px 10px;cursor:pointer}.close{float:right;background:#ef4444}.row{padding:8px;border-bottom:1px solid #334155}.muted{color:#94a3b8}input,select{box-sizing:border-box;width:100%;padding:8px;margin:6px 0;background:#1e293b;color:#fff;border:1px solid #475569;border-radius:6px}`;
 
   // src/ui/panel.js
-  function openPanel(context2, api2) {
-    closePanel(context2);
+  function openPanel(context, api) {
+    closePanel(context);
     const host = document.createElement("div");
     const root = host.attachShadow({ mode: "open" });
-    root.innerHTML = `<style>${PANEL_CSS}</style><div class="panel"><button class="close">\xD7</button><h2>Copero Career Editor</h2><p class="muted">Panel modular v${context2.config.version}</p><div id="summary"></div><button id="backup">Crear backup</button><button id="clubs">Selector de clubes</button></div>`;
-    root.querySelector(".close").onclick = () => closePanel(context2);
-    root.querySelector("#backup").onclick = () => api2.backup();
-    root.querySelector("#clubs").onclick = () => api2.clubs.panel();
+    root.innerHTML = `<style>${PANEL_CSS}</style><div class="panel"><button class="close">\xD7</button><h2>Copero Career Editor</h2><p class="muted">Panel modular v${context.config.version}</p><div id="summary"></div><button id="backup">Crear backup</button><button id="clubs">Selector de clubes</button></div>`;
+    root.querySelector(".close").onclick = () => closePanel(context);
+    root.querySelector("#backup").onclick = () => api.backup();
+    root.querySelector("#clubs").onclick = () => api.clubs.panel();
     try {
-      const s = context2.stateManager.get();
+      const s = context.stateManager.get();
       root.querySelector("#summary").textContent = `${s.player?.lastName ?? "Jugador"} \xB7 OVR ${s.player?.overall ?? "?"} \xB7 ${s.seasons.length} temporadas`;
     } catch (e) {
       root.querySelector("#summary").textContent = e.message;
     }
     document.documentElement.append(host);
-    context2.runtime.panelHost = host;
+    context.runtime.panelHost = host;
     return host;
   }
-  function closePanel(context2) {
-    context2.runtime.panelHost?.remove();
-    context2.runtime.panelHost = null;
+  function closePanel(context) {
+    context.runtime.panelHost?.remove();
+    context.runtime.panelHost = null;
   }
 
   // src/ui/club-picker.js
-  function openClubPicker(context2, api2, catalog2) {
+  function openClubPicker(context, api, catalog) {
     const host = document.createElement("div");
     const root = host.attachShadow({ mode: "open" });
     root.innerHTML = `<style>${PANEL_CSS}</style><div class="panel"><button class="close">\xD7</button><h2>Clubes verificados</h2><input placeholder="Buscar club"><select><option value="replace">Reemplazar oferta 1</option><option value="add">A\xF1adir oferta</option></select><div class="results"></div><div class="muted message"></div></div>`;
@@ -812,14 +876,14 @@
     const input = root.querySelector("input"), results = root.querySelector(".results"), message = root.querySelector(".message");
     const render = () => {
       try {
-        catalog2.refresh();
-        results.replaceChildren(...catalog2.search(input.value).map((club) => {
+        catalog.refresh();
+        results.replaceChildren(...catalog.search(input.value).map((club) => {
           const row = document.createElement("div");
           row.className = "row";
           row.textContent = `${club.name} (${club.id}) \xB7 ${club.country ?? "?"} \xB7 D${club.division ?? "?"} \xB7 Rep ${club.reputation ?? club.international_reputation ?? "?"}`;
           row.onclick = () => {
             try {
-              api2.clubs.choose(club.id, { strategy: root.querySelector("select").value });
+              api.clubs.choose(club.id, { strategy: root.querySelector("select").value });
               message.textContent = "Oferta preparada; p\xFAlsala en la interfaz del juego.";
             } catch (e) {
               message.textContent = e.message;
@@ -838,73 +902,78 @@
   }
 
   // src/index.js
-  var globalName = deriveGlobalName(CONFIG);
-  var old = window[globalName];
-  if (old?.__coperoCareerEditor) old.destroy?.({ silent: true });
-  var runtime = createRuntime();
-  var logger = new Logger(CONFIG);
-  var validator = new Validator(CONFIG);
-  var historyManager = new HistoryManager(CONFIG.maxHistoryEntries);
-  var locator = new ReactLocator(CONFIG, runtime);
-  var stateManager = new StateManager(locator, validator, historyManager, logger);
-  var backupManager = new BackupManager(stateManager);
-  var registry = new CommandRegistry();
-  var catalog = new ClubCatalog(stateManager);
-  var help = new HelpRenderer(registry, CONFIG);
-  var api;
-  var context = { config: CONFIG, runtime, stateManager, historyManager, backupManager, validator, logger, registry };
-  var panels = { open: (ctx) => openPanel(ctx, api), close: closePanel };
-  registerPlayer(registry);
-  registerSeasons(registry);
-  registerStats(registry);
-  registerTrophies(registry);
-  registerClubs(registry, catalog);
-  registerImportExport(registry);
-  registerPresets(registry);
-  registerWatcher(registry);
-  registerCore(registry, help, panels);
-  var handler = new CommandHandler(registry, context);
-  api = { __coperoCareerEditor: true, version: CONFIG.version, prefix: CONFIG.prefix };
-  var namespaces = {};
-  for (const c of registry.list()) {
-    const parts = c.name.split(".");
-    if (parts.length === 2) {
-      const [space, name] = parts;
-      (namespaces[space] ??= {})[name] = (...args) => handler.run(c.name, ...args);
-    }
-    for (const alias of c.aliases) api[alias] = (...args) => handler.run(alias, ...args);
-    if (parts.length === 1) api[c.name] = (...args) => handler.run(c.name, ...args);
-  }
-  for (const [space, methods] of Object.entries(namespaces)) {
-    if (typeof api[space] === "function") attachMethods(api[space], methods);
-    else api[space] = methods;
-  }
-  api.backups = { ...api.backups, create: (...a) => handler.run("backup", ...a), restore: (...a) => handler.run("restore", ...a), remove: (...a) => handler.run("deleteBackup", ...a), list: () => backupManager.list(), exists: (n) => backupManager.exists(n) };
-  api.clubs.panel = () => openClubPicker(context, api, catalog);
-  api.destroy = ({ silent = false } = {}) => {
-    handler.run("unwatch");
-    handler.run("unfreezeAll");
-    closePanel(context);
+  function installCareerEditor() {
+    const globalName = deriveGlobalName(CONFIG);
+    const runtime = createRuntime();
+    const logger = new Logger(CONFIG);
+    const errorHandler = new ErrorHandler(CONFIG, runtime);
     try {
-      delete window[globalName];
-    } catch {
-      window[globalName] = void 0;
+      const old = window[globalName];
+      if (old?.__coperoCareerEditor) old.destroy?.({ silent: true });
+      const validator = new Validator(CONFIG), historyManager = new HistoryManager(CONFIG.maxHistoryEntries), locator = new ReactLocator(CONFIG, runtime);
+      const stateManager = new StateManager(locator, validator, historyManager, logger), backupManager = new BackupManager(stateManager), registry = new CommandRegistry(), catalog = new ClubCatalog(stateManager), help = new HelpRenderer(registry, CONFIG);
+      let api;
+      const context = { config: CONFIG, runtime, stateManager, historyManager, backupManager, validator, logger, registry, errorHandler };
+      const panels = { open: (ctx) => openPanel(ctx, api), close: closePanel };
+      registerPlayer(registry);
+      registerSeasons(registry);
+      registerStats(registry);
+      registerTrophies(registry);
+      registerClubs(registry, catalog);
+      registerImportExport(registry);
+      registerPresets(registry);
+      registerWatcher(registry);
+      registerCore(registry, help, panels);
+      const handler = new CommandHandler(registry, context);
+      api = { __coperoCareerEditor: true, version: CONFIG.version, prefix: CONFIG.prefix };
+      const namespaces = {};
+      for (const registered of registry.list()) {
+        const parts = registered.name.split(".");
+        if (parts.length === 2) {
+          const [space, name] = parts;
+          (namespaces[space] ??= {})[name] = (...args) => handler.run(registered.name, ...args);
+        }
+        for (const alias of registered.aliases) api[alias] = (...args) => handler.run(alias, ...args);
+        if (parts.length === 1) api[registered.name] = (...args) => handler.run(registered.name, ...args);
+      }
+      for (const [space, methods] of Object.entries(namespaces)) {
+        if (typeof api[space] === "function") attachMethods(api[space], methods);
+        else api[space] = methods;
+      }
+      api.backups = { ...api.backups, create: (...a) => handler.run("backup", ...a), restore: (...a) => handler.run("restore", ...a), remove: (...a) => handler.run("deleteBackup", ...a), list: () => backupManager.list(), exists: (name) => backupManager.exists(name) };
+      api.clubs.panel = () => errorHandler.guard("clubs.panel", () => openClubPicker(context, api, catalog));
+      api.lastError = () => runtime.lastError;
+      api.destroy = ({ silent = false } = {}) => {
+        handler.run("unwatch");
+        handler.run("unfreezeAll");
+        closePanel(context);
+        try {
+          delete window[globalName];
+        } catch {
+          window[globalName] = void 0;
+        }
+        if (!silent) logger.success("Editor desinstalado.");
+        return true;
+      };
+      Object.defineProperties(api, { help: { enumerable: true, get() {
+        return errorHandler.guard("help", () => help.overview());
+      } }, status: { enumerable: true, get() {
+        return handler.run("summary");
+      } }, get: { enumerable: true, get() {
+        return handler.run("inspect");
+      } } });
+      window[globalName] = api;
+      try {
+        if (CONFIG.autoBackupOnInstall) backupManager.create("original");
+      } catch (error) {
+        logger.warning('Editor instalado sin backup original. Abre una partida y usa careerEditor.backup("original").', error.message);
+      }
+      logger.success(`v${CONFIG.version} instalado. Usa ${CONFIG.prefix}help`);
+      return api;
+    } catch (error) {
+      const report = errorHandler.capture(error, { phase: "install", recovery: ["Comprueba que GitHub contiene el main.js m\xE1s reciente.", "Recarga la p\xE1gina y vuelve a ejecutar el loader.", `${CONFIG.prefix}diagnose()`] });
+      return installFailureApi(window, globalName, CONFIG, report);
     }
-    if (!silent) logger.success("Editor desinstalado.");
-    return true;
-  };
-  Object.defineProperties(api, { help: { enumerable: true, get() {
-    return help.overview();
-  } }, status: { enumerable: true, get() {
-    return handler.run("summary");
-  } }, get: { enumerable: true, get() {
-    return handler.run("inspect");
-  } } });
-  window[globalName] = api;
-  try {
-    if (CONFIG.autoBackupOnInstall) backupManager.create("original");
-    logger.success(`v${CONFIG.version} instalado. Usa ${CONFIG.prefix}help`);
-  } catch (error) {
-    logger.warning('Editor instalado, pero no se cre\xF3 backup original. Abre una partida y usa careerEditor.backup("original").', error.message);
   }
+  installCareerEditor();
 })();
