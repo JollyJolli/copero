@@ -60,6 +60,17 @@
   }
   var normalizeText = (value) => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   var timestampName = (prefix = "backup") => `${prefix}-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}`;
+  function attachMethods(target, methods) {
+    for (const [name, method] of Object.entries(methods)) {
+      Object.defineProperty(target, name, {
+        value: method,
+        enumerable: true,
+        configurable: true,
+        writable: false
+      });
+    }
+    return target;
+  }
 
   // src/core/validator.js
   var BLOCKED_PATH_PARTS = ["__proto__", "prototype", "constructor"];
@@ -865,7 +876,7 @@
     if (parts.length === 1) api[c.name] = (...args) => handler.run(c.name, ...args);
   }
   for (const [space, methods] of Object.entries(namespaces)) {
-    if (typeof api[space] === "function") Object.assign(api[space], methods);
+    if (typeof api[space] === "function") attachMethods(api[space], methods);
     else api[space] = methods;
   }
   api.backups = { ...api.backups, create: (...a) => handler.run("backup", ...a), restore: (...a) => handler.run("restore", ...a), remove: (...a) => handler.run("deleteBackup", ...a), list: () => backupManager.list(), exists: (n) => backupManager.exists(n) };

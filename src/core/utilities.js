@@ -5,3 +5,19 @@ export function assert(condition, message) { if (!condition) throw new Error(mes
 export const unique = values => [...new Set(values)];
 export const normalizeText = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 export const timestampName = (prefix = 'backup') => `${prefix}-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+
+/**
+ * Adjunta métodos a una API invocable, incluso cuando el nombre coincide con
+ * propiedades nativas de Function como `name` o `length`.
+ */
+export function attachMethods(target, methods) {
+  for (const [name, method] of Object.entries(methods)) {
+    Object.defineProperty(target, name, {
+      value: method,
+      enumerable: true,
+      configurable: true,
+      writable: false
+    });
+  }
+  return target;
+}
