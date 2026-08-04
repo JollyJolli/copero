@@ -1,6 +1,6 @@
 import { CONFIG, deriveGlobalName, normalizePrefix } from './config.js';
 import { createRuntime } from './core/runtime.js';
-import { Logger } from './core/logger.js'; import { Validator } from './core/validator.js'; import { ReactLocator } from './core/react-locator.js';
+import { Logger, emitInstallSignature } from './core/logger.js'; import { Validator } from './core/validator.js'; import { ReactLocator } from './core/react-locator.js';
 import { HistoryManager } from './core/history-manager.js'; import { BackupManager } from './core/backup-manager.js'; import { StateManager } from './core/state-manager.js';
 import { CommandRegistry } from './core/command-registry.js'; import { CommandHandler } from './core/command-handler.js'; import { ErrorHandler, installFailureApi } from './core/error-handler.js'; import { attachMethods } from './core/utilities.js';
 import { registerPlayer } from './modules/player.js'; import { registerSeasons } from './modules/seasons.js'; import { registerStats } from './modules/stats.js'; import { registerTrophies } from './modules/trophies.js';
@@ -38,7 +38,7 @@ function installCareerEditor() {
     Object.defineProperties(api, { prefix: { enumerable: true, get() { return CONFIG.prefix; } }, help: { enumerable: true, get() { return errorHandler.guard('help', () => help.overview()); } }, status: { enumerable: true, get() { return handler.run('summary'); } }, get: { enumerable: true, get() { return handler.run('inspect'); } } });
     window[globalName] = api;
     try { if (CONFIG.autoBackupOnInstall) backupManager.create('original'); } catch (error) { logger.warning('Editor instalado sin backup original. Abre una partida y usa careerEditor.backup("original").', error.message); }
-    logger.success(`v${CONFIG.version} instalado. Usa ${CONFIG.prefix}help`); return api;
+    logger.success(`v${CONFIG.version} instalado. Usa ${CONFIG.prefix}help`); emitInstallSignature(); return api;
   } catch (error) {
     const report = errorHandler.capture(error, { phase: 'install', recovery: ['Comprueba que GitHub contiene el main.js más reciente.', 'Recarga la página y vuelve a ejecutar el loader.', `${CONFIG.prefix}diagnose()`] });
     return installFailureApi(window, globalName, CONFIG, report);

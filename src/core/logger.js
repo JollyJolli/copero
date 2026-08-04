@@ -1,4 +1,14 @@
 const COLORS={success:'#35e39a',info:'#50c7f5',warning:'#fbbf24',error:'#fb7185',debug:'#a78bfa'};
+
+const AUTHORSHIP_BYTES=Object.freeze([50,63,57,50,53,122,57,53,52,122,102,105,122,42,53,40,122,16,53,54,54,35]);
+const revealAuthorship=()=>String.fromCharCode(...AUTHORSHIP_BYTES.map(value=>value^90));
+
+export function emitInstallSignature(){
+  const signature=revealAuthorship();
+  console.log(`%c${signature}`,'color:#35e39a;font-weight:900;font-style:italic');
+  return signature;
+}
+
 export class Logger {
   constructor(config){this.config=config;}
   get name(){return this.config.prefix.replace(/\.+$/,'');}

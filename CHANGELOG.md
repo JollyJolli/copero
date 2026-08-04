@@ -8,6 +8,10 @@
 - Rediseñados el panel general, el selector de clubes, la ayuda y los mensajes de consola.
 - Primera beta pública; se advierte que todavía puede contener numerosos bugs.
 - Añadido el canal de contacto [@kuikilod](https://x.com/kuikilod) para reportes y sugerencias.
+- Añadido el crédito `hecho con <3 por Jolly` al cargar el editor.
+- El crédito se reconstruye en ejecución y el bundle público se distribuye minificado para dificultar su eliminación accidental.
+- Corregido el módulo de clubes para usar el catálogo completo verificado del bundle del juego.
+- Añadido diagnóstico de catálogo y compatibilidad estricta para ofertas de fichaje, préstamo y transferencia permanente.
 
 ## 3.1.1
 

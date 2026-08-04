@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "pretest": "node scripts/extract-clubs.mjs",
     "build": "node scripts/build.mjs",
     "dev": "node scripts/build.mjs --watch",
     "test": "node --test"

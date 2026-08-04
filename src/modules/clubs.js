@@ -1,31 +1,56 @@
 import { command } from './helpers.js';
 import { normalizeText } from '../core/utilities.js';
-const CLUB_KEYS = ['teamId', 'clubId', 'currentTeamId', 'targetTeamId'];
-export class ClubCatalog {
-  constructor(stateManager) { this.stateManager = stateManager; this.clubs = new Map(); }
-  add(value) { if (typeof value === 'string' && value) this.clubs.set(value, this.clubs.get(value) ?? { id: value, name: value }); else if (value && typeof value === 'object') { const id = value.id ?? value.teamId ?? value.clubId ?? value.slug; if (id) this.clubs.set(String(id), { ...this.clubs.get(String(id)), ...value, id: String(id), name: value.name ?? value.name_en ?? value.name_es ?? String(id) }); } }
-  refresh() { this.clubs.clear(); const state = this.stateManager.get(); this.add(state.currentTeamId); this.add(state.contractTeamId); this.add(state.player?.currentTeamId); for (const s of state.seasons ?? []) this.add(s.team ?? s.teamId); for (const option of state.currentEvent?.options ?? []) { this.add(option.team ?? option.club); for (const key of CLUB_KEYS) this.add(option[key]); } return this.list(); }
-  list(filters = {}) { return [...this.clubs.values()].filter(c => (!filters.country || [c.country, c.countryCode, c.country_id].includes(filters.country)) && (!filters.division || Number(c.division ?? c.divisionLevel) === Number(filters.division)) && (!filters.minReputation || Number(c.reputation ?? c.international_reputation ?? 0) >= filters.minReputation)); }
-  getById(id) { if (!this.clubs.size) this.refresh(); return this.clubs.get(String(id)); }
-  search(query) { if (!this.clubs.size) this.refresh(); const q = normalizeText(query); return this.list().filter(c => normalizeText(`${c.name} ${c.id}`).includes(q)); }
-  has(id) { return Boolean(this.getById(id)); }
+import { VERIFIED_CLUBS } from '../data/verified-clubs.js';
+
+const TEAM_KEYS=['teamId','clubId','currentTeamId','targetTeamId'];
+const OFFER_TYPES=new Set(['join_club','join_loan','permanent_transfer']);
+
+export class ClubCatalog{
+  constructor(stateManager,verifiedClubs=VERIFIED_CLUBS){this.stateManager=stateManager;this.verifiedClubs=verifiedClubs;this.clubs=new Map();}
+  add(value){
+    if(typeof value==='string'&&value){if(!this.clubs.has(value))this.clubs.set(value,{id:value,name:value,source:'state'});return;}
+    if(!value||typeof value!=='object')return;
+    const id=value.id??value.teamId??value.clubId??value.slug;if(!id)return;
+    const key=String(id),previous=this.clubs.get(key)??{};
+    this.clubs.set(key,{...previous,...value,id:key,name:value.name??value.name_en??value.name_es??previous.name??key});
+  }
+  refresh(){
+    this.clubs.clear();for(const club of this.verifiedClubs)this.add({...club,source:'verified-bundle'});
+    const state=this.stateManager.get();this.add(state.currentTeamId);this.add(state.contractTeamId);this.add(state.player?.currentTeamId);
+    for(const season of state.seasons??[])this.add(season.team??season.teamId);
+    for(const option of state.currentEvent?.options??[]){this.add(option.team??option.club);for(const key of TEAM_KEYS)this.add(option[key]);}
+    return this.list();
+  }
+  list(filters={}){return[...this.clubs.values()].filter(club=>(!filters.country||[club.country,club.countryCode,club.country_id,club.country_fifa_code].map(value=>String(value??'').toUpperCase()).includes(String(filters.country).toUpperCase()))&&(!filters.division||Number(club.division??club.divisionLevel)===Number(filters.division))&&(!filters.minReputation||Number(club.reputation??club.international_reputation??0)>=Number(filters.minReputation)));}
+  getById(id){if(!this.clubs.size)this.refresh();return this.clubs.get(String(id));}
+  search(query){if(!this.clubs.size)this.refresh();const normalized=normalizeText(query);return this.list().filter(club=>normalizeText(`${club.name} ${club.short_name??''} ${club.abbreviation??''} ${club.id}`).includes(normalized));}
+  has(id){return Boolean(this.getById(id));}
 }
-export function compatibleOffers(state) { return (state.currentEvent?.options ?? []).map((option, index) => ({ option, index, key: CLUB_KEYS.find(k => k in option) })).filter(x => x.key); }
-export function replaceOfferState(state, humanIndex, club, add = false) {
-  const offers = compatibleOffers(state); if (!offers.length) throw new Error('El evento actual no contiene una oferta compatible que pueda clonarse.');
-  const source = add ? offers[0] : offers[Number(humanIndex) - 1]; if (!source) throw new Error(`No existe la oferta ${humanIndex}.`);
-  if (offers.some(x => String(x.option[x.key]) === club.id)) throw new Error('Ese club ya está ofrecido.');
-  const copy = structuredClone(source.option); copy[source.key] = club.id;
-  for (const nested of ['team', 'club']) if (copy[nested] && typeof copy[nested] === 'object') copy[nested] = { ...copy[nested], ...club, id: club.id };
-  if ('id' in copy) copy.id = `${copy.id}-editor-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  if (add) state.currentEvent.options.push(copy); else state.currentEvent.options[source.index] = copy; return copy;
+
+export function compatibleOffers(state){
+  return(state.currentEvent?.options??[]).map((option,index)=>({option,index,key:TEAM_KEYS.find(key=>key in option)})).filter(item=>item.key&&OFFER_TYPES.has(item.option.type));
 }
-export function registerClubs(registry, catalog) {
-  command(registry, { name: 'clubs.list', category: 'clubs', description: 'Lista clubes descubiertos.', usage: 'careerEditor.clubs.list()', execute: (_, filters) => { catalog.refresh(); const rows = catalog.list(filters); console.table(rows); return rows; } });
-  command(registry, { name: 'clubs.search', category: 'clubs', description: 'Busca clubes.', usage: 'careerEditor.clubs.search("Barcelona")', execute: (_, query) => { catalog.refresh(); const rows = catalog.search(query); console.table(rows); return rows; } });
-  command(registry, { name: 'clubs.current', category: 'clubs', description: 'Club actual.', usage: 'careerEditor.clubs.current()', execute: ({ stateManager }) => { catalog.refresh(); return catalog.getById(stateManager.get().player?.currentTeamId ?? stateManager.get().currentTeamId); } });
-  command(registry, { name: 'clubs.offers', category: 'clubs', description: 'Ofertas actuales.', usage: 'careerEditor.clubs.offers()', execute: ({ stateManager }) => compatibleOffers(stateManager.get()).map(({ option, index, key }) => ({ number: index + 1, clubId: option[key], option })) });
-  for (const [name, add] of [['replaceOffer', false], ['addOffer', true]]) command(registry, { name: `clubs.${name}`, category: 'clubs', description: `${add ? 'Añade' : 'Reemplaza'} una oferta clonada.`, usage: `careerEditor.clubs.${name}(${add ? '' : '1,'}"club")`, execute: ({ stateManager }, first, second) => { catalog.refresh(); const id = add ? first : second; const club = catalog.getById(id); if (!club) throw new Error(`Club no verificado: ${id}. Usa careerEditor.clubs.search().`); let result; stateManager.mutate(`Oferta ${add ? 'añadida' : 'reemplazada'}`, d => { result = replaceOfferState(d, add ? 1 : first, club, add); }); return result; } });
-  command(registry, { name: 'clubs.removeOffer', category: 'clubs', description: 'Elimina una oferta.', usage: 'careerEditor.clubs.removeOffer(2)', dangerous: true, execute: ({ stateManager }, number) => stateManager.mutate('Oferta eliminada', d => { const i = Number(number) - 1; if (!d.currentEvent?.options?.[i]) throw new Error('Oferta inexistente.'); d.currentEvent.options.splice(i, 1); }) });
-  command(registry, { name: 'clubs.choose', category: 'clubs', description: 'Prepara una oferta para elegirla en la UI.', usage: 'careerEditor.clubs.choose("club")', execute: (ctx, id, options = {}) => { const strategy = options.strategy ?? 'auto'; const result = strategy === 'add' ? ctx.registry.get('clubs.addOffer').execute(ctx, id) : ctx.registry.get('clubs.replaceOffer').execute(ctx, options.offer ?? 1, id); ctx.logger.info('Oferta preparada. Pulsa la opción en la interfaz original.'); return result; } });
+
+export function replaceOfferState(state,humanIndex,club,add=false){
+  if(!state.currentEvent||!Array.isArray(state.currentEvent.options))throw new Error('No existe un evento actual con opciones.');
+  const offers=compatibleOffers(state);if(!offers.length)throw new Error('El evento actual no contiene una oferta de club compatible.');
+  const requested=Number(humanIndex);if(!add&&(!Number.isInteger(requested)||requested<1))throw new Error('El número de oferta debe comenzar en 1.');
+  const source=add?offers[0]:offers[requested-1];if(!source)throw new Error(`No existe la oferta compatible ${humanIndex}.`);
+  if(offers.some(item=>String(item.option[item.key])===club.id))throw new Error('Ese club ya está ofrecido.');
+  const copy=structuredClone(source.option);copy[source.key]=club.id;
+  for(const nested of ['team','club'])if(copy[nested]&&typeof copy[nested]==='object')copy[nested]={...copy[nested],...club,id:club.id};
+  copy.id=`${copy.type}-${club.id}-editor-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+  if(add)state.currentEvent.options.push(copy);else state.currentEvent.options[source.index]=copy;
+  return{option:copy,optionNumber:add?compatibleOffers(state).length:requested,optionIndex:add?state.currentEvent.options.length-1:source.index};
+}
+
+export function registerClubs(registry,catalog){
+  command(registry,{name:'clubs.list',category:'clubs',description:'Lista el catálogo verificado de clubes.',usage:'careerEditor.clubs.list()',execute:(_,filters)=>{catalog.refresh();const rows=catalog.list(filters);console.table(rows);return rows;}});
+  command(registry,{name:'clubs.search',category:'clubs',description:'Busca en el catálogo completo verificado.',usage:'careerEditor.clubs.search("Barcelona")',execute:(_,query)=>{catalog.refresh();const rows=catalog.search(query);console.table(rows);return rows;}});
+  command(registry,{name:'clubs.current',category:'clubs',description:'Devuelve el club actual.',usage:'careerEditor.clubs.current()',execute:({stateManager})=>{catalog.refresh();return catalog.getById(stateManager.get().player?.currentTeamId??stateManager.get().currentTeamId);}});
+  command(registry,{name:'clubs.offers',category:'clubs',description:'Muestra únicamente ofertas compatibles.',usage:'careerEditor.clubs.offers()',execute:({stateManager})=>compatibleOffers(stateManager.get()).map(({option,index,key},offerIndex)=>({number:offerIndex+1,optionIndex:index,kind:option.type,clubId:option[key],club:catalog.getById(option[key])??null,option}))});
+  command(registry,{name:'clubs.catalogInfo',category:'clubs',description:'Diagnostica catálogo y evento actual.',usage:'careerEditor.clubs.catalogInfo()',execute:({stateManager})=>{catalog.refresh();const state=stateManager.get(),report={verifiedClubs:catalog.list().filter(club=>club.source==='verified-bundle').length,totalClubs:catalog.list().length,eventType:state.currentEvent?.type??null,totalOptions:state.currentEvent?.options?.length??0,compatibleOffers:compatibleOffers(state).length,compatibleTypes:[...OFFER_TYPES]};console.table(report);return report;}});
+  for(const[name,add]of[['replaceOffer',false],['addOffer',true]])command(registry,{name:`clubs.${name}`,category:'clubs',description:`${add?'Añade':'Reemplaza'} una oferta usando una plantilla real.`,usage:`careerEditor.clubs.${name}(${add?'':'1,'}"club")`,execute:({stateManager},first,second)=>{catalog.refresh();const id=String(add?first:second),club=catalog.getById(id);if(!club||club.source!=='verified-bundle')throw new Error(`Club no verificado: ${id}. Usa careerEditor.clubs.search().`);let result;stateManager.mutate(`Oferta ${add?'añadida':'reemplazada'}`,draft=>{result=replaceOfferState(draft,add?1:first,club,add);});return result;}});
+  command(registry,{name:'clubs.removeOffer',category:'clubs',description:'Elimina una oferta compatible por número.',usage:'careerEditor.clubs.removeOffer(2)',dangerous:true,execute:({stateManager},number)=>stateManager.mutate('Oferta eliminada',draft=>{const offers=compatibleOffers(draft),offer=offers[Number(number)-1];if(!offer)throw new Error(`No existe la oferta compatible ${number}.`);draft.currentEvent.options.splice(offer.index,1);})});
+  command(registry,{name:'clubs.choose',category:'clubs',description:'Prepara una oferta para pulsarla en la interfaz.',usage:'careerEditor.clubs.choose("club")',execute:(context,id,options={})=>{const strategy=options.strategy??'auto';if(!['auto','replace','add'].includes(strategy))throw new Error('strategy debe ser auto, replace o add.');const commandName=strategy==='add'?'clubs.addOffer':'clubs.replaceOffer',result=context.registry.get(commandName).execute(context,...(strategy==='add'?[id]:[options.offer??1,id]));context.logger.info(`Oferta preparada en la opción ${result.optionNumber}. Pulsa esa opción en la interfaz original.`);return result;}});
 }
