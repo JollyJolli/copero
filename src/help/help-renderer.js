@@ -1,0 +1,7 @@
+const icons = { player:'👤', seasons:'📅', trophies:'🏆', awards:'🥇', clubs:'🏟️', backups:'💾', stats:'📊', data:'📦', runtime:'⚙️', presets:'✨', core:'🧰' };
+export class HelpRenderer {
+  constructor(registry, config) { this.registry = registry; this.config = config; }
+  overview() { console.group(`%c⚽ COPERO CAREER EDITOR v${this.config.version}`, 'color:#22c55e;font-weight:900;font-size:14px'); console.log(`Prefijo: ${this.config.prefix}`); console.log('Categorías'); for (const c of this.registry.categories()) console.log(`${icons[c] ?? '•'} ${c}: ${this.config.prefix}helpFor("${c}")`); console.log('Ejemplos:', `${this.config.prefix}overall(99)`, `${this.config.prefix}clubs.search("Barcelona")`, `${this.config.prefix}backup("antes")`); console.groupEnd(); }
+  category(name) { const commands = this.registry.list(name); if (!commands.length) throw new Error(`Categoría desconocida: ${name}.`); console.group(`${icons[name] ?? '•'} ${name}`); for (const c of commands) console.log(`%c${c.usage}`, 'color:#38bdf8', `— ${c.description}${c.dangerous ? ' ⚠️' : ''}`); console.groupEnd(); return commands; }
+  command(name) { const c = this.registry.get(name); if (!c) throw new Error(`Comando desconocido: ${name}.`); console.group(c.usage); console.log(c.description); if (c.dangerous) console.warn('⚠️ Operación peligrosa'); for (const example of c.examples) console.log(example); console.groupEnd(); return c; }
+}

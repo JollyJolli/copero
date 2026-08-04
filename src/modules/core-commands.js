@@ -1,0 +1,24 @@
+import { command } from './helpers.js';
+import { clone, timestampName } from '../core/utilities.js';
+import { getAtPath, setAtPath, deleteAtPath } from '../core/paths.js';
+export function registerCore(registry, help, panels) {
+  command(registry,{name:'inspect',category:'core',description:'Copia estado.',usage:'careerEditor.inspect()',execute:({stateManager})=>stateManager.snapshot()});
+  command(registry,{name:'summary',category:'core',description:'Resumen.',usage:'careerEditor.summary()',execute:({stateManager})=>{const s=stateManager.get();const v={phase:s.phase,step:s.step,player:s.player,seasons:s.seasons.length,totals:s.totals,currentEvent:s.currentEvent?{id:s.currentEvent.id,type:s.currentEvent.type,options:s.currentEvent.options?.length}:null};console.log(v);return v;}});
+  command(registry,{name:'set',category:'core',description:'Modifica ruta.',usage:'careerEditor.set(path,value)',execute:({stateManager,validator},path,value)=>stateManager.mutate(`Ruta modificada: ${path}`,d=>setAtPath(d,path,clone(value),validator))});
+  command(registry,{name:'merge',category:'core',description:'Fusiona objeto.',usage:'careerEditor.merge(path,patch)',execute:({stateManager,validator},path,patch)=>stateManager.mutate(`Ruta fusionada: ${path}`,d=>{validator.patch(patch);const current=getAtPath(d,path,validator);validator.patch(current);setAtPath(d,path,{...current,...clone(patch)},validator);})});
+  command(registry,{name:'remove',category:'core',description:'Elimina ruta.',usage:'careerEditor.remove(path)',dangerous:true,execute:({stateManager,validator,config},path)=>{if(config.safeMode&&['phase','seed','player','seasons','totals'].includes(validator.path(path)[0]))throw new Error('Modo seguro bloquea eliminar una propiedad esencial.');return stateManager.mutate(`Ruta eliminada: ${path}`,d=>{if(!deleteAtPath(d,path,validator))throw new Error('La ruta no existe.');});}});
+  command(registry,{name:'backup',category:'backups',description:'Crea backup.',usage:'careerEditor.backup(name)',execute:({backupManager},name=timestampName())=>backupManager.create(name)});
+  command(registry,{name:'restore',category:'backups',description:'Restaura backup.',usage:'careerEditor.restore(name)',dangerous:true,execute:({backupManager},name='original')=>backupManager.restore(name)});
+  command(registry,{name:'deleteBackup',category:'backups',description:'Elimina backup.',usage:'careerEditor.deleteBackup(name)',dangerous:true,execute:({backupManager},name)=>backupManager.remove(name)});
+  command(registry,{name:'undo',category:'backups',description:'Deshace.',usage:'careerEditor.undo()',execute:({stateManager,historyManager})=>stateManager.replace('Deshacer',historyManager.undo(stateManager.get()),{history:false})});
+  command(registry,{name:'redo',category:'backups',description:'Rehace.',usage:'careerEditor.redo()',execute:({stateManager,historyManager})=>stateManager.replace('Rehacer',historyManager.redo(stateManager.get()),{history:false})});
+  command(registry,{name:'safeMode',category:'core',description:'Configura modo seguro.',usage:'careerEditor.safeMode(true)',execute:({config},value)=>config.safeMode=Boolean(value)});
+  command(registry,{name:'validate',category:'core',description:'Valida estado.',usage:'careerEditor.validate()',execute:({stateManager})=>stateManager.validate(stateManager.get())});
+  command(registry,{name:'repair',category:'core',description:'Repara únicamente colecciones seguras.',usage:'careerEditor.repair()',execute:({stateManager})=>stateManager.mutate('Reparación segura',d=>{d.seasons??=[];d.totals??={};d.log??=[];})});
+  command(registry,{name:'refresh',category:'runtime',description:'Relocaliza React.',usage:'careerEditor.refresh()',execute:({stateManager})=>stateManager.refreshConnection()});
+  command(registry,{name:'diagnose',category:'runtime',description:'Diagnóstico.',usage:'careerEditor.diagnose()',execute:({runtime,historyManager,backupManager})=>{const v={locator:runtime.lastLocator,history:historyManager.list(),backups:backupManager.list(),panelOpen:Boolean(runtime.panelHost)};console.log(v);return v;}});
+  command(registry,{name:'helpFor',category:'core',description:'Ayuda de categoría.',usage:'careerEditor.helpFor(category)',execute:(_,name)=>help.category(name)});
+  command(registry,{name:'helpCommand',category:'core',description:'Ayuda de comando.',usage:'careerEditor.helpCommand(name)',execute:(_,name)=>help.command(name)});
+  command(registry,{name:'panel',category:'runtime',description:'Abre panel.',usage:'careerEditor.panel()',execute:(ctx)=>panels.open(ctx)});
+  command(registry,{name:'closePanel',category:'runtime',description:'Cierra panel.',usage:'careerEditor.closePanel()',execute:(ctx)=>panels.close(ctx)});
+}

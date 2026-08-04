@@ -1,0 +1,12 @@
+{
+  "name": "copero-career-editor",
+  "version": "3.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs --watch",
+    "test": "node --test"
+  },
+  "devDependencies": { "esbuild": "^0.25.0" }
+}

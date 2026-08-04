@@ -1,0 +1,6 @@
+# Archivos originales de Copero usados solo como referencia local
+info-files/
+
+# Dependencias y artefactos auxiliares de desarrollo
+node_modules/
+main.js.map
