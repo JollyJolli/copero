@@ -1,2 +1,3 @@
-import test from 'node:test'; import assert from 'node:assert/strict'; import { Validator } from '../src/core/validator.js';
+import test from 'node:test'; import assert from 'node:assert/strict'; import { Validator } from '../src/core/validator.js'; import { normalizePrefix } from '../src/config.js';
 const v=new Validator({safeMode:true}); test('validates numbers',()=>{assert.equal(v.number('9','x',{integer:true,min:1,max:10}),9);assert.throws(()=>v.number(11,'x',{max:10}));}); test('blocks prototype pollution',()=>{for(const p of ['__proto__.x','a.prototype.x','constructor.x'])assert.throws(()=>v.path(p));assert.deepEqual(v.path('a[0].b'),['a','0','b']);});
+test('normalizes temporary prefixes',()=>{assert.deepEqual(normalizePrefix(' p. '),{name:'p',prefix:'p.'});for(const value of ['', 'hola mundo', '123editor', 'class'])assert.throws(()=>normalizePrefix(value));});

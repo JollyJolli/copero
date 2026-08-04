@@ -1,5 +1,6 @@
 export class Logger {
-  constructor(config) { this.config = config; this.tag = `[${config.prefix.replace(/\.+$/, '')}]`; }
+  constructor(config) { this.config = config; }
+  get tag() { return `[${this.config.prefix.replace(/\.+$/, '')}]`; }
   success(message, value = '') { console.log(`%c${this.tag} ${message}`, 'color:#22c55e;font-weight:700', value); }
   info(message, value = '') { console.info(this.tag, message, value); }
   warning(message, value = '') { console.warn(this.tag, message, value); }

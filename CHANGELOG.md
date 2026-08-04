@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.0
+
+- Añadido `setPrefix()` para renombrar temporalmente la API global durante la pestaña actual.
+- El logger, la ayuda y el manejador de errores adoptan inmediatamente el nuevo prefijo.
+- Añadida validación de identificadores reservados y protección contra sobrescritura de variables globales.
+
 ## 3.1.1
 
 - Corregida la colisión entre `careerEditor.player(...)` y `careerEditor.player.name(...)`.

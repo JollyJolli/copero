@@ -1,4 +1,4 @@
-# Copero Career Editor 3.1.1
+# Copero Career Editor 3.2.0
 
 Editor modular para modificar localmente una partida abierta del Career Simulator de Copero. Actúa sobre el estado React de la pestaña; no modifica servidores. Haz un backup antes de experimentar y evita importar estados que no sean tuyos.
 
@@ -42,6 +42,16 @@ careerEditor.trophies.add('world_cup')
 careerEditor.backup('antes')
 careerEditor.undo()
 ```
+
+El nombre global puede cambiarse temporalmente para la pestaña actual:
+
+```js
+careerEditor.setPrefix('p')
+p.panel()
+p.help
+```
+
+El cambio no usa almacenamiento y desaparece al recargar. El nombre anterior deja de estar disponible.
 
 Los aliases v2 (`player`, `overall`, `price`, `season`, `lastSeason`, `addTrophy`, etc.) llaman a los mismos comandos organizados.
 

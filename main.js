@@ -8,7 +8,7 @@
   // src/config.js
   var CONFIG = {
     prefix: "careerEditor.",
-    version: "3.1.1",
+    version: "3.2.0",
     globalName: null,
     maxHistoryEntries: 50,
     autoBackupOnInstall: true,
@@ -16,10 +16,17 @@
     debug: false,
     maxReactNodes: 15e3
   };
+  var RESERVED_NAMES = /* @__PURE__ */ new Set(["await", "break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do", "else", "enum", "export", "extends", "false", "finally", "for", "function", "if", "implements", "import", "in", "instanceof", "interface", "let", "new", "null", "package", "private", "protected", "public", "return", "static", "super", "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with", "yield"]);
   function deriveGlobalName(config = CONFIG) {
     const name = config.globalName ?? config.prefix.trim().replace(/\.+$/, "");
-    if (!/^[A-Za-z_$][\w$]*$/.test(name)) throw new Error(`Nombre global inv\xE1lido: ${name}`);
+    if (!/^[A-Za-z_$][\w$]*$/.test(name) || RESERVED_NAMES.has(name)) throw new Error(`Nombre global inv\xE1lido: ${name}`);
     return name;
+  }
+  function normalizePrefix(value) {
+    if (typeof value !== "string" || !value.trim()) throw new Error("El prefijo debe ser texto no vac\xEDo.");
+    const name = value.trim().replace(/\.+$/, "");
+    deriveGlobalName({ prefix: `${name}.`, globalName: null });
+    return { name, prefix: `${name}.` };
   }
 
   // src/core/runtime.js
@@ -29,7 +36,9 @@
   var Logger = class {
     constructor(config) {
       this.config = config;
-      this.tag = `[${config.prefix.replace(/\.+$/, "")}]`;
+    }
+    get tag() {
+      return `[${this.config.prefix.replace(/\.+$/, "")}]`;
     }
     success(message, value = "") {
       console.log(`%c${this.tag} ${message}`, "color:#22c55e;font-weight:700", value);
@@ -761,6 +770,7 @@
 
   // src/modules/core-commands.js
   function registerCore(registry, help, panels) {
+    command(registry, { name: "setPrefix", category: "core", description: "Cambia temporalmente el nombre global del editor.", usage: 'careerEditor.setPrefix("p")', examples: ['careerEditor.setPrefix("p")', "p.panel()"], execute: ({ runtime }, value) => runtime.setPrefix(value) });
     command(registry, { name: "inspect", category: "core", description: "Copia estado.", usage: "careerEditor.inspect()", execute: ({ stateManager }) => stateManager.snapshot() });
     command(registry, { name: "summary", category: "core", description: "Resumen.", usage: "careerEditor.summary()", execute: ({ stateManager }) => {
       const s = stateManager.get();
@@ -905,6 +915,7 @@
   function installCareerEditor() {
     const globalName = deriveGlobalName(CONFIG);
     const runtime = createRuntime();
+    runtime.globalName = globalName;
     const logger = new Logger(CONFIG);
     const errorHandler = new ErrorHandler(CONFIG, runtime);
     try {
@@ -925,7 +936,7 @@
       registerWatcher(registry);
       registerCore(registry, help, panels);
       const handler = new CommandHandler(registry, context);
-      api = { __coperoCareerEditor: true, version: CONFIG.version, prefix: CONFIG.prefix };
+      api = { __coperoCareerEditor: true, version: CONFIG.version };
       const namespaces = {};
       for (const registered of registry.list()) {
         const parts = registered.name.split(".");
@@ -943,19 +954,38 @@
       api.backups = { ...api.backups, create: (...a) => handler.run("backup", ...a), restore: (...a) => handler.run("restore", ...a), remove: (...a) => handler.run("deleteBackup", ...a), list: () => backupManager.list(), exists: (name) => backupManager.exists(name) };
       api.clubs.panel = () => errorHandler.guard("clubs.panel", () => openClubPicker(context, api, catalog));
       api.lastError = () => runtime.lastError;
+      runtime.setPrefix = (value) => {
+        const next = normalizePrefix(value);
+        const previousName = runtime.globalName;
+        if (next.name === previousName) return api;
+        if (next.name in window && window[next.name] !== api) throw new Error(`window.${next.name} ya existe. Elige otro prefijo.`);
+        Object.defineProperty(window, next.name, { value: api, configurable: true, writable: true });
+        try {
+          delete window[previousName];
+        } catch {
+          window[previousName] = void 0;
+        }
+        CONFIG.prefix = next.prefix;
+        runtime.globalName = next.name;
+        logger.success(`Prefijo temporal cambiado. Ahora usa ${next.prefix}help`);
+        return api;
+      };
       api.destroy = ({ silent = false } = {}) => {
         handler.run("unwatch");
         handler.run("unfreezeAll");
         closePanel(context);
+        const activeName = runtime.globalName;
         try {
-          delete window[globalName];
+          delete window[activeName];
         } catch {
-          window[globalName] = void 0;
+          window[activeName] = void 0;
         }
         if (!silent) logger.success("Editor desinstalado.");
         return true;
       };
-      Object.defineProperties(api, { help: { enumerable: true, get() {
+      Object.defineProperties(api, { prefix: { enumerable: true, get() {
+        return CONFIG.prefix;
+      } }, help: { enumerable: true, get() {
         return errorHandler.guard("help", () => help.overview());
       } }, status: { enumerable: true, get() {
         return handler.run("summary");

@@ -2,6 +2,7 @@ import { command } from './helpers.js';
 import { clone, timestampName } from '../core/utilities.js';
 import { getAtPath, setAtPath, deleteAtPath } from '../core/paths.js';
 export function registerCore(registry, help, panels) {
+  command(registry,{name:'setPrefix',category:'core',description:'Cambia temporalmente el nombre global del editor.',usage:'careerEditor.setPrefix("p")',examples:['careerEditor.setPrefix("p")','p.panel()'],execute:({runtime},value)=>runtime.setPrefix(value)});
   command(registry,{name:'inspect',category:'core',description:'Copia estado.',usage:'careerEditor.inspect()',execute:({stateManager})=>stateManager.snapshot()});
   command(registry,{name:'summary',category:'core',description:'Resumen.',usage:'careerEditor.summary()',execute:({stateManager})=>{const s=stateManager.get();const v={phase:s.phase,step:s.step,player:s.player,seasons:s.seasons.length,totals:s.totals,currentEvent:s.currentEvent?{id:s.currentEvent.id,type:s.currentEvent.type,options:s.currentEvent.options?.length}:null};console.log(v);return v;}});
   command(registry,{name:'set',category:'core',description:'Modifica ruta.',usage:'careerEditor.set(path,value)',execute:({stateManager,validator},path,value)=>stateManager.mutate(`Ruta modificada: ${path}`,d=>setAtPath(d,path,clone(value),validator))});
