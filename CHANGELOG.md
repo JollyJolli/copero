@@ -2,6 +2,7 @@
 
 ## B1 — Beta 1
 
+- Añadido `update()` para comprobar e instalar una versión nueva desde GitHub sin volver a pegar el loader.
 - Añadido `setPrefix()` para renombrar temporalmente la API global durante la pestaña actual.
 - El logger, la ayuda y el manejador de errores adoptan inmediatamente el nuevo prefijo.
 - Añadida validación de identificadores reservados y protección contra sobrescritura de variables globales.
@@ -12,6 +13,7 @@
 - El crédito se reconstruye en ejecución y el bundle público se distribuye minificado para dificultar su eliminación accidental.
 - Corregido el módulo de clubes para usar el catálogo completo verificado del bundle del juego.
 - Añadido diagnóstico de catálogo y compatibilidad estricta para ofertas de fichaje, préstamo y transferencia permanente.
+- Panel adaptado a la interfaz real del Career Simulator a partir de su HTML, con HUD compacto, tarjeta OVR ámbar y estadísticas PJ/Gls/Ast.
 
 ## 3.1.1
 

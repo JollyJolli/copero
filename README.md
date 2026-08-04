@@ -84,7 +84,10 @@ careerEditor.validate()
 careerEditor.repair()
 careerEditor.diagnose()
 careerEditor.refresh()
+careerEditor.update()
 ```
+
+`update()` consulta GitHub sin caché y, si `update.json` anuncia otra versión, descarga e instala el `main.js` nuevo en la pestaña actual. Usa `careerEditor.update({ checkOnly: true })` para limitarte a comprobar si existe una actualización.
 
 La exportación nueva incluye versión, fecha y `gameState`; import acepta también el estado puro v2. `repair()` solo inicializa colecciones seguras ausentes.
 

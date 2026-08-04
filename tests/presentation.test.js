@@ -1,4 +1,4 @@
 import test from 'node:test'; import assert from 'node:assert/strict'; import { PANEL_CSS } from '../src/ui/styles.js'; import { Logger, emitInstallSignature } from '../src/core/logger.js';
-test('panel stylesheet contains the new visual system',()=>{for(const token of ['.cee-shell','.cee-tabs','.cee-hero','.cee-toast','.cee-club-row'])assert.match(PANEL_CSS,new RegExp(token.replace('.','\\.')));});
+test('panel stylesheet contains the new visual system',()=>{for(const token of ['.cee-shell','.cee-tabs','.cee-hero','.cee-statbar','.cee-mini','.cee-toast','.cee-club-row'])assert.match(PANEL_CSS,new RegExp(token.replace('.','\\.')));});
 test('logger follows a changed runtime prefix',()=>{const config={prefix:'careerEditor.',debug:false};const logger=new Logger(config);assert.equal(logger.name,'careerEditor');config.prefix='p.';assert.equal(logger.name,'p');});
 test('authorship signature is reconstructed at runtime',()=>{const original=console.log;let shown='';console.log=(format)=>{shown=format.slice(2);};try{assert.equal(emitInstallSignature(),'hecho con <3 por Jolly');assert.equal(shown,'hecho con <3 por Jolly');}finally{console.log=original;}});

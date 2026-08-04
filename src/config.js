@@ -1,7 +1,9 @@
 export const CONFIG = {
   prefix: 'careerEditor.', version: 'B1', globalName: null,
   maxHistoryEntries: 50, autoBackupOnInstall: true, safeMode: true,
-  debug: false, maxReactNodes: 15000
+  debug: false, maxReactNodes: 15000,
+  updateManifestUrl: 'https://raw.githubusercontent.com/JollyJolli/copero/main/update.json',
+  updateScriptUrl: 'https://raw.githubusercontent.com/JollyJolli/copero/main/main.js'
 };
 
 const RESERVED_NAMES = new Set(['await','break','case','catch','class','const','continue','debugger','default','delete','do','else','enum','export','extends','false','finally','for','function','if','implements','import','in','instanceof','interface','let','new','null','package','private','protected','public','return','static','super','switch','this','throw','true','try','typeof','var','void','while','with','yield']);

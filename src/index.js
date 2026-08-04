@@ -6,6 +6,7 @@ import { CommandRegistry } from './core/command-registry.js'; import { CommandHa
 import { registerPlayer } from './modules/player.js'; import { registerSeasons } from './modules/seasons.js'; import { registerStats } from './modules/stats.js'; import { registerTrophies } from './modules/trophies.js';
 import { ClubCatalog, registerClubs } from './modules/clubs.js'; import { registerImportExport } from './modules/import-export.js'; import { registerPresets } from './modules/presets.js'; import { registerWatcher } from './modules/watcher.js'; import { registerCore } from './modules/core-commands.js';
 import { HelpRenderer } from './help/help-renderer.js'; import { openPanel, closePanel } from './ui/panel.js'; import { openClubPicker, closeClubPicker } from './ui/club-picker.js';
+import { createUpdater } from './core/updater.js';
 
 function installCareerEditor() {
   const globalName = deriveGlobalName(CONFIG); const runtime = createRuntime(); runtime.globalName = globalName; const logger = new Logger(CONFIG); const errorHandler = new ErrorHandler(CONFIG, runtime);
@@ -35,6 +36,7 @@ function installCareerEditor() {
       logger.success(`Prefijo temporal cambiado. Ahora usa ${next.prefix}help`); return api;
     };
     api.destroy = ({ silent = false } = {}) => { handler.run('unwatch'); handler.run('unfreezeAll'); closePanel(context); closeClubPicker(context); const activeName = runtime.globalName; try { delete window[activeName]; } catch { window[activeName] = undefined; } if (!silent) logger.success('Editor desinstalado.'); return true; };
+    runtime.update = createUpdater({ config: CONFIG, runtime, logger, errorHandler, getApi: () => api });
     Object.defineProperties(api, { prefix: { enumerable: true, get() { return CONFIG.prefix; } }, help: { enumerable: true, get() { return errorHandler.guard('help', () => help.overview()); } }, status: { enumerable: true, get() { return handler.run('summary'); } }, get: { enumerable: true, get() { return handler.run('inspect'); } } });
     window[globalName] = api;
     try { if (CONFIG.autoBackupOnInstall) backupManager.create('original'); } catch (error) { logger.warning('Editor instalado sin backup original. Abre una partida y usa careerEditor.backup("original").', error.message); }
