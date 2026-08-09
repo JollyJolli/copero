@@ -35,9 +35,9 @@ export class ClubCatalog{
     for(const option of state.currentEvent?.options??[]){this.add(option.team??option.club);for(const key of TEAM_KEYS)this.add(option[key]);}
     return this.list();
   }
-  list(filters={}){return[...this.clubs.values()].filter(club=>(!filters.country||[club.country,club.countryCode,club.country_id,club.country_fifa_code].map(value=>String(value??'').toUpperCase()).includes(String(filters.country).toUpperCase()))&&(!filters.division||Number(club.division??club.divisionLevel)===Number(filters.division))&&(!filters.minReputation||Number(club.reputation??club.international_reputation??0)>=Number(filters.minReputation)));}
+  list(filters={}){return[...this.clubs.values()].filter(club=>(!filters.country||[club.country,club.countryCode,club.country_id,club.country_fifa_code].map(value=>String(value??'').toUpperCase()).includes(String(filters.country).toUpperCase()))&&(!filters.competition||[club.competitionId,club.competition_id,club.competitionName,club.competition_name].map(value=>normalizeText(value??'')).includes(normalizeText(filters.competition)))&&(!filters.division||Number(club.division??club.divisionLevel)===Number(filters.division))&&(!filters.minReputation||Number(club.reputation??club.international_reputation??0)>=Number(filters.minReputation)));}
   getById(id){if(!this.clubs.size)this.refresh();return this.clubs.get(String(id));}
-  search(query){if(!this.clubs.size)this.refresh();const normalized=normalizeText(query);return this.list().filter(club=>normalizeText(`${club.name} ${club.short_name??''} ${club.abbreviation??''} ${club.id}`).includes(normalized));}
+  search(query,filters={}){if(!this.clubs.size)this.refresh();const normalized=normalizeText(query);return this.list(filters).filter(club=>normalizeText(`${club.name} ${club.short_name??''} ${club.abbreviation??''} ${club.id}`).includes(normalized));}
   has(id){return Boolean(this.getById(id));}
 }
 

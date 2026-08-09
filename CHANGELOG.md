@@ -1,5 +1,11 @@
 # Changelog
 
+## B4-P — Beta 4 Panel
+
+- Añadido un botón `AAS` fijo en la barra superior del panel.
+- Añadido un centro de comandos para buscar, consultar y ejecutar toda la API con argumentos JSON y confirmaciones de seguridad.
+- Añadidos filtros combinables de clubes por país, competición, división y reputación mínima.
+
 ## B3 — Beta 3
 
 - Integrado un mercado completo dentro del panel principal con búsqueda de clubes, selector de ofertas y acciones para reemplazar o añadir ofertas.

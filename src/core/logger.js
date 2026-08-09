@@ -27,7 +27,7 @@ export class Logger {
   }
   welcome() {
     consoleBrand(this.config.version);
-    console.log('%cBETA 3 · MERCADO Y PANEL TOTAL', T.section);
+    console.log('%cBETA 4 · PANEL EDITION', T.section);
     console.log('%cEditor conectado a la partida actual. Los cambios permanecen en esta pestaña.', T.muted);
     console.log('\n%c ● ACTIVO %c API %c ' + this.config.prefix, T.success, T.chip, T.command);
     console.log('%c   ABRIR PANEL  %c' + `${this.config.prefix}panel()`, T.muted, T.command);

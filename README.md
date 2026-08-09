@@ -1,4 +1,4 @@
-# Copero Career Editor B3
+# Copero Career Editor B4-P
 
 Editor modular para modificar localmente una partida abierta del Career Simulator de Copero. Actúa sobre el estado React de la pestaña; no modifica servidores. Haz un backup antes de experimentar y evita importar estados que no sean tuyos.
 
@@ -93,7 +93,9 @@ careerEditor.clubs.choose('barcelona', { strategy: 'replace', offer: 1 })
 careerEditor.clubs.panel()
 ```
 
-`clubs.list()` y `clubs.search()` muestran en consola una tabla limpia con país, competición e ID; el array devuelto conserva todos los datos del club. El panel principal incluye un mercado completo para buscar clubes, seleccionar una oferta y reemplazarla o añadir otra sin escribir comandos.
+`clubs.list()` y `clubs.search()` muestran en consola una tabla limpia con país, competición e ID; el array devuelto conserva todos los datos del club. El panel principal incluye un mercado completo para buscar clubes, filtrar por país, competición, división y reputación, seleccionar una oferta y reemplazarla o añadir otra sin escribir comandos.
+
+El panel mantiene un botón `AAS` fijo para completar los logros faltantes de la última temporada. La sección **Comandos** permite buscar toda la API y ejecutarla con argumentos escritos como un array JSON, por ejemplo `["barcelona"]`; los comandos peligrosos siempre piden confirmación.
 
 El catálogo usa los clubes verificados del bundle actual de Copero y también reconoce los observados en la partida, temporadas u opciones del evento. Las ofertas se clonan desde una opción real y el usuario confirma el fichaje pulsando la interfaz original. `forceJoin` no se incluye porque los bundles no permiten garantizar la sincronización de todos los campos.
 

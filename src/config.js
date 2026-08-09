@@ -1,5 +1,5 @@
 export const CONFIG = {
-  prefix: 'careerEditor.', version: 'B3', globalName: null,
+  prefix: 'careerEditor.', version: 'B4-P', globalName: null,
   maxHistoryEntries: 50, autoBackupOnInstall: true, safeMode: true,
   debug: false, maxReactNodes: 15000,
   updateManifestUrl: 'https://raw.githubusercontent.com/JollyJolli/copero/main/update.json',
