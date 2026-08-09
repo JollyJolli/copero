@@ -1,5 +1,11 @@
 # Changelog
 
+## B3 — Beta 3
+
+- Integrado un mercado completo dentro del panel principal con búsqueda de clubes, selector de ofertas y acciones para reemplazar o añadir ofertas.
+- Simplificadas las tablas de `clubs.list()` y `clubs.search()` para mostrar solamente país, competición e ID, conservando los objetos completos en el valor devuelto.
+- Ampliada la navegación del panel para que Clubes sea una sección propia tanto en PC como en celular.
+
 ## B2.3
 
 - Añadida una celebración visual al agregar trofeos o premios por consola, incluyendo los logros que incorpore `addAllSeason()` / `aas()`.

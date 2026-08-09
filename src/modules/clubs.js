@@ -5,6 +5,12 @@ import { VERIFIED_CLUBS } from '../data/verified-clubs.js';
 const TEAM_KEYS=['teamId','clubId','currentTeamId','targetTeamId'];
 const OFFER_TYPES=new Set(['join_club','join_loan','permanent_transfer']);
 
+export function clubTableRows(clubs){return clubs.map(club=>({
+  país:club.country_fifa_code??club.countryCode??club.country??club.country_id??'—',
+  competición:club.competitionName??club.competition_name??club.competitionId??club.competition_id??'—',
+  id:club.id
+}));}
+
 export function refreshDecisionEvent(state){
   if(!state.currentEvent)return null;
   const base=String(state.currentEvent.id??`career-event-${state.step??0}`).replace(/-cee-[a-z0-9-]+$/i,'');
@@ -57,8 +63,8 @@ export function replaceOfferState(state,humanIndex,club,add=false){
 }
 
 export function registerClubs(registry,catalog){
-  command(registry,{name:'clubs.list',category:'clubs',description:'Lista el catálogo verificado de clubes.',usage:'careerEditor.clubs.list()',execute:({logger},filters)=>{catalog.refresh();const rows=catalog.list(filters);logger.group(`CATÁLOGO · ${rows.length} CLUBES`,true);console.table(rows);console.groupEnd();return rows;}});
-  command(registry,{name:'clubs.search',category:'clubs',description:'Busca en el catálogo completo verificado.',usage:'careerEditor.clubs.search("Barcelona")',execute:({logger},query)=>{catalog.refresh();const rows=catalog.search(query);logger.group(`BÚSQUEDA “${query}” · ${rows.length} RESULTADOS`);console.table(rows);console.groupEnd();return rows;}});
+  command(registry,{name:'clubs.list',category:'clubs',description:'Lista el catálogo verificado de clubes.',usage:'careerEditor.clubs.list()',execute:({logger},filters)=>{catalog.refresh();const rows=catalog.list(filters);logger.group(`CATÁLOGO · ${rows.length} CLUBES`,true);console.table(clubTableRows(rows));console.groupEnd();return rows;}});
+  command(registry,{name:'clubs.search',category:'clubs',description:'Busca en el catálogo completo verificado.',usage:'careerEditor.clubs.search("Barcelona")',execute:({logger},query)=>{catalog.refresh();const rows=catalog.search(query);logger.group(`BÚSQUEDA “${query}” · ${rows.length} RESULTADOS`);console.table(clubTableRows(rows));console.groupEnd();return rows;}});
   command(registry,{name:'clubs.current',category:'clubs',description:'Devuelve el club actual.',usage:'careerEditor.clubs.current()',execute:({stateManager})=>{catalog.refresh();return catalog.getById(stateManager.get().player?.currentTeamId??stateManager.get().currentTeamId);}});
   command(registry,{name:'clubs.offers',category:'clubs',description:'Muestra únicamente ofertas compatibles.',usage:'careerEditor.clubs.offers()',execute:({stateManager})=>compatibleOffers(stateManager.get()).map(({option,index,key},offerIndex)=>({number:offerIndex+1,optionIndex:index,kind:option.type,clubId:option[key],club:catalog.getById(option[key])??null,option}))});
   command(registry,{name:'clubs.catalogInfo',category:'clubs',description:'Diagnostica catálogo y evento actual.',usage:'careerEditor.clubs.catalogInfo()',execute:({stateManager,logger})=>{catalog.refresh();const state=stateManager.get(),report={verifiedClubs:catalog.list().filter(club=>club.source==='verified-bundle').length,totalClubs:catalog.list().length,eventType:state.currentEvent?.type??null,totalOptions:state.currentEvent?.options?.length??0,compatibleOffers:compatibleOffers(state).length,compatibleTypes:[...OFFER_TYPES]};logger.group('DIAGNÓSTICO DEL MERCADO');console.table(report);console.groupEnd();return report;}});

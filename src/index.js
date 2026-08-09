@@ -14,7 +14,7 @@ function installCareerEditor() {
     const old = window[globalName]; if (old?.__coperoCareerEditor) old.destroy?.({ silent: true });
     const validator = new Validator(CONFIG), historyManager = new HistoryManager(CONFIG.maxHistoryEntries), locator = new ReactLocator(CONFIG, runtime);
     const stateManager = new StateManager(locator, validator, historyManager, logger), backupManager = new BackupManager(stateManager), registry = new CommandRegistry(), catalog = new ClubCatalog(stateManager), help = new HelpRenderer(registry, CONFIG);
-    let api; const context = { config: CONFIG, runtime, stateManager, historyManager, backupManager, validator, logger, registry, errorHandler }; const panels = { open: ctx => openPanel(ctx, api), close: closePanel };
+    let api; const context = { config: CONFIG, runtime, stateManager, historyManager, backupManager, validator, logger, registry, errorHandler, catalog }; const panels = { open: ctx => openPanel(ctx, api), close: closePanel };
     registerPlayer(registry); registerSeasons(registry); registerStats(registry); registerTrophies(registry); registerClubs(registry, catalog); registerImportExport(registry); registerPresets(registry); registerWatcher(registry); registerCore(registry, help, panels);
     const handler = new CommandHandler(registry, context); api = { __coperoCareerEditor: true, version: CONFIG.version }; const namespaces = {};
     for (const registered of registry.list()) {

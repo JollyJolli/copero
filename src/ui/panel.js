@@ -1,4 +1,5 @@
 import { PANEL_CSS } from './styles.js';
+import { compatibleOffers } from '../modules/clubs.js';
 
 const escapeHtml = value => String(value ?? '—').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 const number = value => Number(value) || 0;
@@ -24,7 +25,7 @@ function enableDrag(host, handle) {
 }
 
 const navigation = [
-  ['dashboard', 'Inicio'], ['player', 'Jugador'], ['career', 'Carrera'], ['data', 'Datos']
+  ['dashboard', 'Inicio'], ['player', 'Jugador'], ['clubs', 'Clubes'], ['career', 'Carrera'], ['data', 'Datos']
 ];
 
 function shellMarkup(version) {
@@ -60,7 +61,7 @@ function dashboardView(state, history) {
     <div class="cee-quick-grid">
       <button data-command="backup"><i>${icon('backup')}</i><div><strong>Crear backup</strong><span>Punto de restauración rápido</span></div></button>
       <button data-command="undo"><i>${icon('undo')}</i><div><strong>Deshacer</strong><span>Regresa el último cambio</span></div></button>
-      <button data-command="clubs"><i>${icon('clubs')}</i><div><strong>Mercado</strong><span>Explora clubes y ofertas</span></div></button>
+      <button data-route="clubs"><i>${icon('clubs')}</i><div><strong>Mercado</strong><span>Busca y cambia ofertas aquí mismo</span></div></button>
       <button data-route="data"><i>${icon('export')}</i><div><strong>Guardar JSON</strong><span>Descarga tu carrera al PC</span></div></button>
     </div>
     <div class="cee-section-head"><div><p>ÚLTIMA TEMPORADA</p><h3>${escapeHtml(last?.teamId ?? 'Aún no hay temporadas')}</h3></div><button class="cee-text-button" data-route="career">Ver carrera →</button></div>
@@ -94,6 +95,26 @@ function careerView(state) {
   </section>`;
 }
 
+const clubCountry = club => club?.country_fifa_code ?? club?.countryCode ?? club?.country ?? '—';
+const clubCompetition = club => club?.competitionName ?? club?.competition_name ?? club?.competitionId ?? club?.competition_id ?? 'Competición desconocida';
+const clubLogo = club => club?.logo_url ? `<img src="${escapeHtml(club.logo_url)}" alt="">` : escapeHtml(String(club?.name ?? club?.id ?? '?').slice(0, 2).toUpperCase());
+
+function clubsView(context, ui) {
+  context.catalog.refresh(); const state = context.stateManager.get(); const offers = compatibleOffers(state);
+  if (ui.offer > offers.length) ui.offer = Math.max(1, offers.length);
+  const query = ui.query.trim(); const source = query ? context.catalog.search(query) : context.catalog.list().sort((a,b) => Number(b.reputation ?? b.international_reputation ?? 0) - Number(a.reputation ?? a.international_reputation ?? 0));
+  const clubs = source.slice(0, 48);
+  return `<section class="cee-clubs-page"><div class="cee-section-head cee-page-head"><div><p>MERCADO B3</p><h3>Control total de ofertas</h3></div><span>${context.catalog.list().length} clubes verificados</span></div>
+    <div class="cee-offer-zone"><div class="cee-market-title"><div><small>PASO 1</small><strong>Elige qué oferta quieres cambiar</strong></div><span>${offers.length} disponibles</span></div>
+      <div class="cee-offer-grid">${offers.length ? offers.map(({option,key},index) => { const club = context.catalog.getById(option[key]); return `<button class="cee-offer-card ${ui.offer === index + 1 ? 'is-selected' : ''}" data-select-offer="${index + 1}"><span class="cee-club-badge">${clubLogo(club)}</span><div><small>OFERTA ${index + 1} · ${escapeHtml(option.type)}</small><strong>${escapeHtml(club?.name ?? option[key])}</strong><code>${escapeHtml(option[key])}</code></div><b>${ui.offer === index + 1 ? 'SELECCIONADA' : 'ELEGIR'}</b></button>`; }).join('') : `<div class="cee-empty compact"><strong>No hay ofertas compatibles ahora mismo</strong><span>Avanza hasta una decisión de fichaje y actualiza el panel.</span></div>`}</div>
+    </div>
+    <div class="cee-club-browser"><div class="cee-market-title"><div><small>PASO 2</small><strong>Busca el club que quieres</strong></div><span>${source.length} resultados</span></div>
+      <label class="cee-club-search"><i>⌕</i><input data-club-search value="${escapeHtml(ui.query)}" placeholder="Nombre o ID, por ejemplo Barcelona..." autocomplete="off"><kbd>48 MAX</kbd></label>
+      <div class="cee-panel-club-results">${clubs.length ? clubs.map(club => `<article class="cee-panel-club" data-club-card="${escapeHtml(club.id)}"><span class="cee-club-badge large">${clubLogo(club)}</span><div class="cee-panel-club-copy"><strong>${escapeHtml(club.name ?? club.id)}</strong><span>${escapeHtml(clubCountry(club))} · ${escapeHtml(clubCompetition(club))}</span><code>${escapeHtml(club.id)}</code></div><div class="cee-club-actions"><button data-market-action="replace" ${offers.length ? '' : 'disabled'}>Reemplazar ${offers.length ? ui.offer : ''}</button><button data-market-action="add" title="Añadir como oferta nueva" ${offers.length ? '' : 'disabled'}>＋</button></div></article>`).join('') : `<div class="cee-empty"><i>⌕</i><strong>No encontramos ese club</strong><span>Prueba con otro nombre o con su ID exacta.</span></div>`}</div>
+    </div>
+  </section>`;
+}
+
 function dataView(context) {
   const backups = context.backupManager.list(); const history = context.historyManager.list();
   return `<section><div class="cee-section-head cee-page-head"><div><p>SEGURIDAD Y DATOS</p><h3>Tu carrera, protegida</h3></div><span>Todo permanece en tu navegador</span></div>
@@ -113,19 +134,19 @@ export function openPanel(context, api) {
   const host = document.createElement('div'); const root = host.attachShadow({ mode:'open' });
   root.innerHTML = shellMarkup(context.config.version);
   const app = root.querySelector('.cee-app'); const content = root.querySelector('.cee-content'); const toast = root.querySelector('.cee-toast');
-  let route = 'dashboard'; let toastTimer; let busy = false;
+  let route = 'dashboard'; let toastTimer; let busy = false; const clubUi = { query:'', offer:1 };
 
   const notify = (message, kind = 'success') => { clearTimeout(toastTimer); toast.textContent = message; toast.className = `cee-toast is-visible is-${kind}`; toastTimer = setTimeout(() => { toast.className = 'cee-toast'; }, 2800); };
   const render = () => {
     root.querySelector('.cee-prefix').textContent = context.config.prefix;
     try {
       const state = context.stateManager.get(); const history = context.historyManager.list();
-      const titles = { dashboard:'Inicio', player:'Jugador', career:'Carrera', data:'Datos y backups' };
+      const titles = { dashboard:'Inicio', player:'Jugador', clubs:'Mercado de clubes', career:'Carrera', data:'Datos y backups' };
       root.querySelector('.cee-page-title').textContent = titles[route];
       root.querySelector('.cee-dock-name').textContent = state.player?.lastName || 'Career Editor';
       root.querySelector('.cee-dock-ovr').textContent = `${state.player?.overall ?? '—'} OVR`;
       root.querySelectorAll('[data-route]').forEach(button => button.classList.toggle('is-active', button.dataset.route === route));
-      content.innerHTML = route === 'dashboard' ? dashboardView(state, history) : route === 'player' ? playerView(state) : route === 'career' ? careerView(state) : dataView(context);
+      content.innerHTML = route === 'dashboard' ? dashboardView(state, history) : route === 'player' ? playerView(state) : route === 'clubs' ? clubsView(context, clubUi) : route === 'career' ? careerView(state) : dataView(context);
     } catch (error) {
       content.innerHTML = `<div class="cee-disconnected"><i>!</i><h2>No encuentro una partida abierta</h2><p>${escapeHtml(error.message)}</p><button class="cee-button primary" data-action="refresh">Intentar de nuevo</button></div>`;
     }
@@ -139,6 +160,10 @@ export function openPanel(context, api) {
   const pickJson = () => new Promise((resolve, reject) => { const input = document.createElement('input'); input.type = 'file'; input.accept = '.json,application/json'; input.onchange = async () => { try { if (!input.files?.[0]) return resolve(null); resolve(await input.files[0].text()); } catch (error) { reject(error); } }; input.click(); });
 
   root.addEventListener('click', async event => {
+    const selectedOffer = event.target.closest('[data-select-offer]')?.dataset.selectOffer;
+    if (selectedOffer) { clubUi.offer = Number(selectedOffer); render(); return; }
+    const marketButton = event.target.closest('[data-market-action]');
+    if (marketButton) { const clubId = marketButton.closest('[data-club-card]')?.dataset.clubCard; if (!clubId) return; const action = marketButton.dataset.marketAction; if (action === 'replace') await run(`Oferta ${clubUi.offer} reemplazada por ${clubId}`, () => api.clubs.replaceOffer(clubUi.offer, clubId)); else await run(`Oferta de ${clubId} añadida`, () => api.clubs.addOffer(clubId)); return; }
     const routeButton = event.target.closest('[data-route]');
     if (routeButton) { route = routeButton.dataset.route; render(); return; }
     const action = event.target.closest('[data-action]')?.dataset.action;
@@ -150,7 +175,7 @@ export function openPanel(context, api) {
     if (command === 'backup') { const name = prompt('Nombre del backup:', `backup-${new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'}).replace(':','-')}`); if (name) await run(`Backup “${name}” creado`, () => api.backup(name)); }
     if (command === 'undo') await run('Último cambio deshecho', () => api.undo());
     if (command === 'redo') await run('Cambio rehecho', () => api.redo());
-    if (command === 'clubs') api.clubs.panel();
+    if (command === 'clubs') { route = 'clubs'; render(); }
     if (command === 'recalculate') await run('Totales recalculados', () => api.stats.recalculate());
     if (command === 'download') await run('JSON descargado', () => api.download(`copero-career-${Date.now()}.json`));
     if (command === 'import') { const json = await pickJson(); if (json && confirm('Esto reemplazará la partida abierta. ¿Continuar?')) await run('Partida importada correctamente', () => api.import(json)); }
@@ -165,6 +190,9 @@ export function openPanel(context, api) {
     const form = new FormData(event.target); const patch = {};
     for (const [key,value] of form) if (value !== '') patch[key] = ['overall','age','preferredNumber','marketValue'].includes(key) ? Number(value) : value;
     await run('Jugador actualizado', () => api.player.set(patch));
+  });
+  root.addEventListener('input', event => {
+    if (!event.target.matches('[data-club-search]')) return; clubUi.query = event.target.value; render(); const input = root.querySelector('[data-club-search]'); input?.focus(); input?.setSelectionRange(input.value.length, input.value.length);
   });
   root.addEventListener('keydown', event => { if (event.key === 'Escape') closePanel(context); });
   document.documentElement.append(host); context.runtime.panelHost = host; enableDrag(app, root.querySelector('.cee-topbar')); render(); return host;
