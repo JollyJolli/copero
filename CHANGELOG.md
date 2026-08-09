@@ -1,7 +1,10 @@
 # Changelog
 
-## B2.1
+## B2.2
 
+- Añadido `addAllSeason()` y su alias `aas()` para dar todos los trofeos y premios conocidos a la temporada actual en un solo paso reversible.
+
+## B2.1
 - Añadido un userscript descargable para iPhone, iPad y Android que permite abrir el editor sin consola mediante un botón flotante.
 - Corregido el reemplazo de clubes para forzar que Copero actualice visualmente nombre, escudo y botón de la oferta.
 - Conservado el ID original de ofertas reemplazadas para evitar `Unknown decision option` durante la transición visual.

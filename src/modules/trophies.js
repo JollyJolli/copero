@@ -9,4 +9,13 @@ function registerCollection(registry, plural, singular, known, legacyAdd, legacy
   command(registry, { name: `${plural}.count`, category: plural, description: `Cuenta ${plural}.`, usage: `careerEditor.${plural}.count()`, execute: (ctx) => ctx.registry.get(`${plural}.list`).execute(ctx).reduce((m, id) => ({ ...m, [id]: (m[id] ?? 0) + 1 }), {}) });
   command(registry, { name: `${plural}.clear`, category: plural, description: `Borra ${plural}.`, usage: `careerEditor.${plural}.clear()`, dangerous: true, execute: ({ stateManager }) => stateManager.mutate(`${plural} eliminados`, d => { for (const s of d.seasons) s[plural] = []; d.totals = recalculateTotals(d); }) });
 }
-export function registerTrophies(registry) { registerCollection(registry, 'trophies', 'trofeo', TROPHIES, 'addTrophy', 'removeTrophy'); registerCollection(registry, 'awards', 'premio', AWARDS, 'addAward', 'removeAward'); }
+export function registerTrophies(registry) {
+  registerCollection(registry, 'trophies', 'trofeo', TROPHIES, 'addTrophy', 'removeTrophy'); registerCollection(registry, 'awards', 'premio', AWARDS, 'addAward', 'removeAward');
+  command(registry, { name: 'addAllSeason', category: 'trophies', description: 'Añade todos los trofeos y premios a la temporada actual.', usage: 'careerEditor.addAllSeason()', aliases: ['aas'], execute: ({ stateManager }) => stateManager.mutate('Todos los logros añadidos a la temporada actual', draft => {
+    const [index] = resolveSeasonIndexes(draft, 'last'); const season = draft.seasons[index];
+    season.trophies = [...new Set([...(season.trophies ?? []), ...TROPHIES])];
+    season.awards = [...new Set([...(season.awards ?? []), ...AWARDS])];
+    draft.totals = recalculateTotals(draft);
+    return { season: index + 1, trophies: [...season.trophies], awards: [...season.awards] };
+  }) });
+}
