@@ -1,4 +1,4 @@
-# Copero Career Editor B2
+# Copero Career Editor B2.1
 
 Editor modular para modificar localmente una partida abierta del Career Simulator de Copero. Actúa sobre el estado React de la pestaña; no modifica servidores. Haz un backup antes de experimentar y evita importar estados que no sean tuyos.
 
@@ -20,6 +20,27 @@ fetch(`https://raw.githubusercontent.com/JollyJolli/copero/main/main.js?t=${Date
   .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
   .then(code => (0, eval)(code)).catch(console.error);
 ```
+
+## Móvil: sin consola
+
+El archivo [para-poner-en-la-consola.js](para-poner-en-la-consola.js) es un userscript ya listo: descarga la versión actual del editor, añade un botón rojo `C` en la esquina y abre el panel cuando entras a una carrera. No hace falta crear ni editar archivos desde el teléfono.
+
+### iPhone y iPad
+
+Usa Safari con la app/extensión [Userscripts](https://github.com/extratone/userscripts-safari). Requiere iOS o iPadOS 15.1 o superior.
+
+1. Instala Userscripts desde App Store.
+2. Ve a `Ajustes > Extensiones > Userscripts`, actívala y permite acceso a todos los sitios.
+3. Abre Userscripts, toca **Set Userscripts Directory** y elige una carpeta de Files.
+4. Descarga el archivo real [para-poner-en-la-consola.js](para-poner-en-la-consola.js) desde GitHub y muévelo a esa carpeta. **No intentes crearlo ni renombrar un TXT en iOS**: debe ser el archivo descargado con extensión `.js`.
+5. Abre el popup de Userscripts una vez para que detecte el archivo y déjalo activado.
+6. Abre `copero.com.ar` en Safari, entra a una carrera y toca el botón rojo `C`.
+
+### Android
+
+Usa Firefox para Android con un gestor de userscripts compatible, como Tampermonkey. Instálalo desde el administrador de extensiones, importa o abre el archivo descargado [para-poner-en-la-consola.js](para-poner-en-la-consola.js) desde el gestor y actívalo para `copero.com.ar`. Después entra a una carrera y toca el botón rojo `C`.
+
+El userscript solo se ejecuta en `copero.com.ar` y sigue usando el mismo `main.js` oficial del repositorio. Si cierras el panel, el botón `C` lo vuelve a abrir.
 
 El `eval` pertenece únicamente al loader. El editor empaquetado no usa imports, Node ni código remoto en ejecución. `src/config.js` contiene el prefijo y la versión. `npm run dev` observa `src/` y regenera `main.js` sin iniciar servidor.
 

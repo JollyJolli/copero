@@ -1,5 +1,13 @@
 # Changelog
 
+## B2.1
+
+- Añadido un userscript descargable para iPhone, iPad y Android que permite abrir el editor sin consola mediante un botón flotante.
+- Corregido el reemplazo de clubes para forzar que Copero actualice visualmente nombre, escudo y botón de la oferta.
+- Conservado el ID original de ofertas reemplazadas para evitar `Unknown decision option` durante la transición visual.
+- Sincronizada la referencia visual interna del evento para mantener `eventId` y `optionId` válidos durante la animación de Copero.
+- Añadida invalidación visual segura al añadir o eliminar ofertas.
+
 ## B2 — Beta 2
 
 - Reconstruida la experiencia de consola con identidad visual propia para B2, banner de instalación, ayuda navegable y reportes de error más claros.
