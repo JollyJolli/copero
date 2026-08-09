@@ -16,6 +16,5 @@ export function registerTrophies(registry) {
     season.trophies = [...new Set([...(season.trophies ?? []), ...TROPHIES])];
     season.awards = [...new Set([...(season.awards ?? []), ...AWARDS])];
     draft.totals = recalculateTotals(draft);
-    return { season: index + 1, trophies: [...season.trophies], awards: [...season.awards] };
   }) });
 }
