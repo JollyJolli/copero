@@ -1,4 +1,4 @@
-# Copero Career Editor B2.2.2
+# Copero Career Editor B2.3
 
 Editor modular para modificar localmente una partida abierta del Career Simulator de Copero. Actúa sobre el estado React de la pestaña; no modifica servidores. Haz un backup antes de experimentar y evita importar estados que no sean tuyos.
 

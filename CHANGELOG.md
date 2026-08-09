@@ -1,5 +1,9 @@
 # Changelog
 
+## B2.3
+
+- Añadida una celebración visual al agregar trofeos o premios por consola, incluyendo los logros que incorpore `addAllSeason()` / `aas()`.
+
 ## B2.2.2
 
 - Corregido `addAllSeason()` / `aas()` para completar únicamente los trofeos y premios que falten en la última temporada, conservando cualquier logro existente.
