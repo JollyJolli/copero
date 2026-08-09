@@ -1,10 +1,18 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot=resolve(dirname(fileURLToPath(import.meta.url)),'..');
-const sourcePath=resolve(projectRoot,'info-files','CareerSimulatorPage-Cu3K3f1m.js');
+const infoDirectory=resolve(projectRoot,'info-files');
 const outputPath=resolve(projectRoot,'src','data','verified-clubs.js');
+
+async function findSourcePath(){
+  const entries=await readdir(infoDirectory,{withFileTypes:true});
+  const candidates=await Promise.all(entries.filter(entry=>entry.isFile()&&/^CareerSimulatorPage-.*\.js$/.test(entry.name)).map(async entry=>({path:resolve(infoDirectory,entry.name),name:entry.name,modified:(await stat(resolve(infoDirectory,entry.name))).mtimeMs})));
+  candidates.sort((a,b)=>b.modified-a.modified);
+  if(!candidates.length){const error=new Error('No se encontró ningún CareerSimulatorPage-*.js dentro de info-files.');error.code='ENOENT';throw error;}
+  return candidates[0];
+}
 
 function decodeSingleQuotedString(raw){
   let result='';
@@ -21,8 +29,8 @@ function decodeSingleQuotedString(raw){
 }
 
 export async function extractVerifiedClubs(){
-  let bundle;
-  try{bundle=await readFile(sourcePath,'utf8');}
+  let bundle,source;
+  try{source=await findSourcePath();bundle=await readFile(source.path,'utf8');}
   catch(error){
     if(error.code!=='ENOENT')throw error;
     const generated=await readFile(outputPath,'utf8');
@@ -31,9 +39,16 @@ export async function extractVerifiedClubs(){
     console.log(`Using ${count} previously generated verified clubs.`);
     return null;
   }
-  const match=bundle.match(/kr=JSON\.parse\((['`])([\s\S]*?)\1\),Ge=/);
-  if(!match)throw new Error('No se encontró el catálogo kr dentro del bundle verificado.');
-  const competitions=JSON.parse(decodeSingleQuotedString(match[2]));
+  const candidates=[];const marker='JSON.parse(';
+  for(let offset=0;(offset=bundle.indexOf(marker,offset))>=0;offset+=marker.length){
+    const quoteIndex=offset+marker.length,quote=bundle[quoteIndex];if(!['\'', '"', '`'].includes(quote))continue;
+    let end=quoteIndex+1;
+    for(;end<bundle.length;end+=1){if(bundle[end]==='\\'){end+=1;continue;}if(bundle[end]===quote)break;}
+    if(end>=bundle.length)continue;
+    try{const parsed=JSON.parse(decodeSingleQuotedString(bundle.slice(quoteIndex+1,end)));if(Array.isArray(parsed)&&parsed.some(item=>Array.isArray(item?.teams)))candidates.push(parsed);}catch{}
+  }
+  const competitions=candidates.sort((a,b)=>b.reduce((sum,item)=>sum+(item.teams?.length??0),0)-a.reduce((sum,item)=>sum+(item.teams?.length??0),0))[0];
+  if(!competitions)throw new Error(`No se encontró un catálogo de competiciones dentro de ${source.name}.`);
   const clubs=[];
   for(const competition of competitions){
     for(const team of competition.teams??[]){
@@ -42,11 +57,12 @@ export async function extractVerifiedClubs(){
   }
   if(clubs.length<100)throw new Error(`El catálogo extraído parece incompleto: ${clubs.length} clubes.`);
   await mkdir(dirname(outputPath),{recursive:true});
-  await writeFile(outputPath,`/* Generated from info-files/CareerSimulatorPage-Cu3K3f1m.js. Do not edit. */\nexport const VERIFIED_CLUBS=Object.freeze(${JSON.stringify(clubs)});\n`,'utf8');
+  await writeFile(outputPath,`/* Generated from info-files/${source.name}. Do not edit. */\nexport const VERIFIED_CLUBS=Object.freeze(${JSON.stringify(clubs)});\n`,'utf8');
+  console.log(`Extracted ${clubs.length} verified clubs from ${source.name}.`);
   return clubs;
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   const clubs=await extractVerifiedClubs();
-  console.log(`Extracted ${clubs.length} verified clubs.`);
+  if(!clubs)console.log('Kept the previously generated verified club catalog.');
 }

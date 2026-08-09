@@ -1,37 +1,50 @@
-const META = { player:['PLAYER','Jugador'], seasons:['SEASONS','Temporadas'], stats:['STATS','Estadísticas'], trophies:['TROPHIES','Trofeos'], awards:['AWARDS','Premios'], clubs:['CLUBS','Clubes'], backups:['BACKUPS','Backups'], presets:['PRESETS','Presets'], data:['DATA','Datos'], runtime:['RUNTIME','Sistema'], core:['CORE','General'] };
-const S = { brand:'background:linear-gradient(90deg,#35e39a,#50c7f5);color:#031b14;border-radius:5px;padding:4px 9px;font-weight:950;font-size:13px', version:'color:#35e39a;font-weight:900', muted:'color:#7890aa', heading:'color:#f8fafc;font-weight:900;font-size:12px', command:'color:#50c7f5;font-family:monospace;font-weight:700', danger:'color:#fb7185;font-weight:850', chip:'background:#12243a;color:#9fb4ca;border-radius:3px;padding:2px 5px;font-weight:800' };
+import { CONSOLE_THEME as T, consoleBrand, consoleSection } from '../core/console-theme.js';
+
+const META = {
+  player:['PLR','Jugador','♙'], seasons:['SEA','Temporadas','◫'], stats:['STA','Estadísticas','↗'], trophies:['TRP','Trofeos','◆'], awards:['AWD','Premios','★'], clubs:['CLB','Clubes','⌕'], backups:['BKP','Backups','□'], presets:['PRE','Presets','◇'], data:['DAT','Datos','↓'], runtime:['SYS','Sistema','⚙'], core:['CORE','General','C']
+};
 
 export class HelpRenderer {
   constructor(registry, config) { this.registry = registry; this.config = config; }
   syntax(value) { return String(value).replace(/\bcareerEditor\./g, () => this.config.prefix); }
   overview() {
-    console.group('%c COPERO CAREER EDITOR %c v' + this.config.version, S.brand, S.version);
-    console.log('%cControl total de tu carrera, directamente desde la consola.\n%cAPI activa: %c' + this.config.prefix, S.muted, S.muted, S.command);
-    console.log('\n%cNAVEGACIÓN', S.heading);
+    consoleBrand(this.config.version);
+    console.log('%cCENTRO DE COMANDOS', T.section);
+    console.log('%cBusca por categoría o abre un comando para ver ejemplos y aliases.', T.muted);
+    console.log('\n%c ● API ACTIVA %c ' + this.config.prefix, T.success, T.command);
+    consoleSection('Explorar');
     for (const category of this.registry.categories()) {
-      const [code,label] = META[category] ?? [category.toUpperCase(),category]; const count = this.registry.list(category).length;
-      console.log(`%c ${code} %c ${label.padEnd(16)} %c${count} comandos  →  ${this.config.prefix}helpFor("${category}")`, S.chip, 'color:#d9e5f1;font-weight:750', S.muted);
+      const [code,label,glyph] = META[category] ?? [category.toUpperCase(),category,'•']; const count = this.registry.list(category).length;
+      console.log(`%c ${glyph} %c ${code} %c ${label.padEnd(17)} %c ${String(count).padStart(2,'0')} comandos %c ${this.config.prefix}helpFor("${category}")`, 'color:#fb7185;font-weight:950', T.chip, T.text, T.muted, T.command);
     }
-    console.log('\n%cINICIO RÁPIDO', S.heading);
-    for (const example of [`${this.config.prefix}overall(99)`,`${this.config.prefix}player.set({ age: 24, position: "ST" })`,`${this.config.prefix}clubs.search("Barcelona")`,`${this.config.prefix}backup("antes")`,`${this.config.prefix}panel()`]) console.log('%c› %c' + example, 'color:#35e39a;font-weight:900', S.command);
-    console.log('\n%cTIP%c Usa %s para ver un comando en detalle.', 'background:#35e39a;color:#052218;border-radius:3px;padding:2px 5px;font-weight:900', S.muted, `${this.config.prefix}helpCommand("overall")`);
+    consoleSection('Inicio rápido');
+    for (const [label,example] of [['JUGADOR',`${this.config.prefix}overall(99)`],['EDITOR',`${this.config.prefix}player.set({ age: 24, position: "ST" })`],['MERCADO',`${this.config.prefix}clubs.search("Barcelona")`],['SEGURIDAD',`${this.config.prefix}backup("antes")`],['INTERFAZ',`${this.config.prefix}panel()`]]) console.log(`%c ${label.padEnd(10)} %c ${example}`, T.chip, T.command);
+    console.log('\n%c TIP %c Detalle de un comando: %c' + `${this.config.prefix}helpCommand("overall")`, T.info, T.muted, T.command);
     console.groupEnd(); return undefined;
   }
   category(name) {
-    const commands = this.registry.list(name); if (!commands.length) throw new Error(`Categoría desconocida: ${name}.`); const [,label] = META[name] ?? [name,name];
-    console.group(`%c ${label.toUpperCase()} %c ${commands.length} comandos`, S.brand, S.muted);
-    for (const item of commands) {
-      console.groupCollapsed(`%c${this.syntax(item.usage)}%c  ${item.dangerous ? '⚠ ' : ''}${item.description}`, S.command, item.dangerous ? S.danger : S.muted);
-      if (item.examples.length) { console.log('%cEJEMPLOS', S.heading); for (const example of item.examples) console.log('%c› %c' + this.syntax(example), 'color:#35e39a', S.command); }
-      if (item.aliases.length) console.log('%cAliases:%c ' + item.aliases.join(', '), S.muted, 'color:#d9e5f1'); console.groupEnd();
-    }
-    console.groupEnd(); return commands;
+    const commands = this.registry.list(name); if (!commands.length) throw new Error(`Categoría desconocida: ${name}.`);
+    const [code,label,glyph] = META[name] ?? [name.toUpperCase(),name,'•'];
+    console.group(`%c ${glyph} %c ${code} %c ${label.toUpperCase()} · ${commands.length} COMANDOS`, T.mark, T.chip, T.title);
+    console.log('%cPulsa cada fila para abrir sus ejemplos y aliases.', T.muted);
+    commands.forEach((item, index) => {
+      console.groupCollapsed(`%c ${String(index + 1).padStart(2,'0')} %c ${this.syntax(item.usage)} %c ${item.dangerous ? '⚠ ' : ''}${item.description}`, item.dangerous ? T.error : T.chip, T.command, item.dangerous ? T.danger : T.muted);
+      console.log('%cDESCRIPCIÓN%c  ' + item.description, T.section, T.text);
+      if (item.examples.length) { console.log('\n%cEJEMPLOS', T.section); for (const example of item.examples) console.log('%c  › %c' + this.syntax(example), 'color:#f43f5e;font-weight:950', T.command); }
+      if (item.aliases.length) console.log('\n%cALIASES%c  ' + item.aliases.join('  ·  '), T.section, T.muted);
+      if (item.dangerous) console.warn('%c ⚠ CUIDADO %c Crea un backup antes de ejecutar este comando.', T.error, T.text);
+      console.groupEnd();
+    });
+    console.log('\n%c VOLVER %c ' + `${this.config.prefix}help`, T.chip, T.command); console.groupEnd(); return commands;
   }
   command(name) {
     const item = this.registry.get(name); if (!item) throw new Error(`Comando desconocido: ${name}.`);
-    console.group('%c COMMAND %c ' + item.name, S.brand, S.heading); console.log('%c' + item.description, 'color:#d9e5f1;font-size:12px'); console.log('\n%cUSO\n%c' + this.syntax(item.usage), S.heading, S.command);
-    if (item.examples.length) { console.log('\n%cEJEMPLOS', S.heading); for (const example of item.examples) console.log('%c› %c' + this.syntax(example), 'color:#35e39a', S.command); }
-    if (item.aliases.length) console.log('\n%cALIASES%c  ' + item.aliases.join(', '), S.heading, S.muted); if (item.dangerous) console.warn('%c⚠ OPERACIÓN PELIGROSA%c  Crea un backup antes de continuar.', S.danger, S.muted);
-    console.groupEnd(); return item;
+    consoleBrand(this.config.version);
+    console.log('%cDETALLE DE COMANDO', T.section); console.log('%c' + item.name, T.title); console.log('%c' + item.description, T.muted);
+    consoleSection('Uso'); console.log('%c' + this.syntax(item.usage), T.command);
+    if (item.examples.length) { consoleSection('Ejemplos'); for (const example of item.examples) console.log('%c  › %c' + this.syntax(example), 'color:#f43f5e;font-weight:950', T.command); }
+    if (item.aliases.length) { consoleSection('Aliases'); console.log('%c ' + item.aliases.join('  ·  ') + ' ', T.chip); }
+    if (item.dangerous) console.warn('\n%c ⚠ OPERACIÓN PELIGROSA %c Crea un backup antes de continuar.', T.error, T.text);
+    console.log('\n%c CATEGORÍA %c ' + `${this.config.prefix}helpFor("${item.category}")`, T.chip, T.command); console.groupEnd(); return item;
   }
 }

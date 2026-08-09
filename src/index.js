@@ -40,7 +40,7 @@ function installCareerEditor() {
     Object.defineProperties(api, { prefix: { enumerable: true, get() { return CONFIG.prefix; } }, help: { enumerable: true, get() { return errorHandler.guard('help', () => help.overview()); } }, status: { enumerable: true, get() { return handler.run('summary'); } }, get: { enumerable: true, get() { return handler.run('inspect'); } } });
     window[globalName] = api;
     try { if (CONFIG.autoBackupOnInstall) backupManager.create('original'); } catch (error) { logger.warning('Editor instalado sin backup original. Abre una partida y usa careerEditor.backup("original").', error.message); }
-    logger.success(`v${CONFIG.version} instalado. Usa ${CONFIG.prefix}help`); emitInstallSignature(); return api;
+    logger.welcome(); emitInstallSignature(); return api;
   } catch (error) {
     const report = errorHandler.capture(error, { phase: 'install', recovery: ['Comprueba que GitHub contiene el main.js más reciente.', 'Recarga la página y vuelve a ejecutar el loader.', `${CONFIG.prefix}diagnose()`] });
     return installFailureApi(window, globalName, CONFIG, report);

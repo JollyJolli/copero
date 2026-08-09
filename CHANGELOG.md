@@ -1,5 +1,12 @@
 # Changelog
 
+## B2 — Beta 2
+
+- Reconstruida la experiencia de consola con identidad visual propia para B2, banner de instalación, ayuda navegable y reportes de error más claros.
+- Actualizada la compatibilidad con `CareerSimulatorPage-C-UnCYTO.js`; el extractor ya encuentra automáticamente bundles con cualquier hash.
+- Ampliado el catálogo verificado de 574 a 711 clubes tras la actualización de Copero.
+- Añadidas pruebas de regresión para las nuevas ligas y clubes del simulador.
+
 ## B1.1
 
 - Corregida la ayuda de categorías y comandos para mostrar siempre el prefijo temporal activo en usos y ejemplos.

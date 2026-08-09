@@ -1,4 +1,5 @@
 import { isObject } from './utilities.js';
+import { CONSOLE_THEME as T } from './console-theme.js';
 export function isGameState(value) { return Boolean(isObject(value) && typeof value.phase === 'string' && Array.isArray(value.seasons) && isObject(value.totals)); }
 export function scoreGameState(value) {
   if (!isGameState(value)) return -Infinity; let score = 10;
@@ -30,6 +31,6 @@ export class ReactLocator {
     candidates.sort((a, b) => b.score - a.score); const best = candidates[0];
     if (!best) throw new Error('No se encontró el estado React. Abre una partida y ejecuta careerEditor.diagnose().');
     this.runtime.lastLocator = { score: best.score, hookIndex: best.hookIndex, candidateCount: candidates.length, phase: best.state.phase, foundAt: new Date().toISOString() };
-    if (!silent) console.debug('[careerEditor] Estado localizado', this.runtime.lastLocator); return best;
+    if (!silent) console.debug('%c CEE %c ◆ REACT LOCALIZADO ', T.mark, T.debug, this.runtime.lastLocator); return best;
   }
 }
