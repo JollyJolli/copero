@@ -1,4 +1,4 @@
-# Copero Career Editor B2.2
+# Copero Career Editor B2.2.2
 
 Editor modular para modificar localmente una partida abierta del Career Simulator de Copero. Actúa sobre el estado React de la pestaña; no modifica servidores. Haz un backup antes de experimentar y evita importar estados que no sean tuyos.
 
@@ -63,7 +63,7 @@ careerEditor.player.set({ overall: 95, price: 200_000_000 })
 careerEditor.seasons.edit('last', { overall: 95 })
 careerEditor.stats.add({ goals: 10, assists: 5 })
 careerEditor.trophies.add('world_cup')
-careerEditor.addAllSeason() // todos los trofeos y premios de la última temporada
+careerEditor.addAllSeason() // completa solo los trofeos y premios faltantes de la última temporada
 careerEditor.aas() // alias corto
 careerEditor.backup('antes')
 careerEditor.undo()

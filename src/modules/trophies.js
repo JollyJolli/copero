@@ -11,10 +11,18 @@ function registerCollection(registry, plural, singular, known, legacyAdd, legacy
 }
 export function registerTrophies(registry) {
   registerCollection(registry, 'trophies', 'trofeo', TROPHIES, 'addTrophy', 'removeTrophy'); registerCollection(registry, 'awards', 'premio', AWARDS, 'addAward', 'removeAward');
-  command(registry, { name: 'addAllSeason', category: 'trophies', description: 'Añade todos los trofeos y premios a la temporada actual.', usage: 'careerEditor.addAllSeason()', aliases: ['aas'], execute: ({ stateManager }) => stateManager.mutate('Todos los logros añadidos a la temporada actual', draft => {
+  command(registry, { name: 'addAllSeason', category: 'trophies', description: 'Completa los logros que faltan de la última temporada.', usage: 'careerEditor.addAllSeason()', aliases: ['aas'], execute: ({ stateManager, logger }) => {
+    let addedTrophies = 0, addedAwards = 0;
+    const state = stateManager.mutate('Logros faltantes añadidos a la última temporada', draft => {
     const [index] = resolveSeasonIndexes(draft, 'last'); const season = draft.seasons[index];
-    season.trophies = [...new Set([...(season.trophies ?? []), ...TROPHIES])];
-    season.awards = [...new Set([...(season.awards ?? []), ...AWARDS])];
+    season.trophies ??= []; season.awards ??= [];
+    const missingTrophies = TROPHIES.filter(id => !season.trophies.includes(id));
+    const missingAwards = AWARDS.filter(id => !season.awards.includes(id));
+    season.trophies.push(...missingTrophies); season.awards.push(...missingAwards);
+    addedTrophies = missingTrophies.length; addedAwards = missingAwards.length;
     draft.totals = recalculateTotals(draft);
-  }) });
+    });
+    logger.success(`Temporada completada: +${addedTrophies} trofeos y +${addedAwards} premios.`);
+    return state;
+  } });
 }

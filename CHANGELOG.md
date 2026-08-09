@@ -1,5 +1,9 @@
 # Changelog
 
+## B2.2.2
+
+- Corregido `addAllSeason()` / `aas()` para completar únicamente los trofeos y premios que falten en la última temporada, conservando cualquier logro existente.
+
 ## B2.2
 
 - Añadido `addAllSeason()` y su alias `aas()` para dar todos los trofeos y premios conocidos a la temporada actual en un solo paso reversible.
