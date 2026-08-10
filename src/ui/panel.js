@@ -1,5 +1,6 @@
 import { PANEL_CSS } from './styles.js';
 import { compatibleOffers } from '../modules/clubs.js';
+import { isSmallScreen, openMobilePanel } from './mobile-panel.js';
 
 const escapeHtml = value => String(value ?? '—').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 const number = value => Number(value) || 0;
@@ -155,6 +156,7 @@ function apiCommand(api, name) { return name.split('.').reduce((value, key) => v
 
 export function openPanel(context, api) {
   closePanel(context);
+  if (isSmallScreen()) return openMobilePanel(context, api);
   const host = document.createElement('div'); const root = host.attachShadow({ mode:'open' });
   root.innerHTML = shellMarkup(context.config.version);
   const app = root.querySelector('.cee-app'); const content = root.querySelector('.cee-content'); const toast = root.querySelector('.cee-toast');

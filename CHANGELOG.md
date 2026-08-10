@@ -1,5 +1,14 @@
 # Changelog
 
+## B5 — Beta 5
+
+- Creado un panel exclusivo para pantallas pequeñas en lugar de reutilizar la interfaz de escritorio comprimida.
+- Añadidos controles táctiles grandes para editar OVR, ejecutar AAS, deshacer y cerrar el panel.
+- Añadido un selector resumido para agregar trofeos y premios específicos a la última temporada.
+- Añadido un mercado móvil compacto para elegir una oferta, buscar un club y reemplazarla.
+- Conservado el acceso mediante el botón flotante `C` del userscript móvil.
+- Actualizada la versión del userscript a `5.0.0` para que sus gestores detecten B5.
+
 ## B4-P — Beta 4 Panel
 
 - Añadido un botón `AAS` fijo en la barra superior del panel.
