@@ -1,4 +1,4 @@
-# Copero Career Editor B5
+# Copero Career Editor B5.1
 
 Editor modular para modificar localmente una partida abierta del Career Simulator de Copero. Actúa sobre el estado React de la pestaña; no modifica servidores. Haz un backup antes de experimentar y evita importar estados que no sean tuyos.
 
@@ -23,7 +23,7 @@ fetch(`https://raw.githubusercontent.com/JollyJolli/copero/main/main.js?t=${Date
 
 ## Móvil: sin consola
 
-El archivo [para-poner-en-la-consola.js](para-poner-en-la-consola.js) es un userscript ya listo: descarga la versión actual del editor, añade un botón rojo `C` en la esquina y abre el panel cuando entras a una carrera. No hace falta crear ni editar archivos desde el teléfono.
+El archivo [para-poner-en-la-consola.js](para-poner-en-la-consola.js) es un userscript ya listo: descarga la versión actual del editor, añade un botón rojo `C` en la esquina y abre el panel cuando entras a una carrera. El panel móvil permite cambiar el OVR, sumar goles, asistencias o partidos, añadir logros individuales o todos a la vez y reemplazar ofertas de clubes. No hace falta crear ni editar archivos desde el teléfono.
 
 ### iPhone y iPad
 
@@ -97,7 +97,7 @@ careerEditor.clubs.panel()
 
 El panel mantiene un botón `AAS` fijo para completar los logros faltantes de la última temporada. La sección **Comandos** permite buscar toda la API y ejecutarla con argumentos escritos como un array JSON, por ejemplo `["barcelona"]`; los comandos peligrosos siempre piden confirmación.
 
-En pantallas de hasta 640 px se abre automáticamente el panel móvil B5, una interfaz independiente y táctil que conserva solo lo esencial: cambiar OVR, completar la temporada con AAS, añadir trofeos o premios específicos, deshacer cambios y buscar clubes para reemplazar ofertas. El botón `C` del userscript permite volver a abrirlo después de cerrarlo.
+En pantallas de hasta 640 px se abre automáticamente el panel móvil B5.1, una interfaz independiente y táctil que conserva solo lo esencial: cambiar OVR, sumar goles, asistencias o partidos, completar todos los logros con AAS, añadir trofeos o premios específicos, deshacer cambios y buscar clubes para reemplazar ofertas. El botón `C` del userscript permite volver a abrirlo después de cerrarlo.
 
 El catálogo usa los clubes verificados del bundle actual de Copero y también reconoce los observados en la partida, temporadas u opciones del evento. Las ofertas se clonan desde una opción real y el usuario confirma el fichaje pulsando la interfaz original. `forceJoin` no se incluye porque los bundles no permiten garantizar la sincronización de todos los campos.
 

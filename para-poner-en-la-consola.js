@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Copero Career Editor
 // @namespace    https://github.com/JollyJolli/copero
-// @version      5.0.0
+// @version      5.1.0
 // @description  Carga Copero Career Editor y añade un botón para abrir el panel sin consola.
 // @match        https://copero.com.ar/*
 // @match        https://www.copero.com.ar/*

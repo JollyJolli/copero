@@ -1,5 +1,12 @@
 # Changelog
 
+## B5.1 — Beta 5.1
+
+- Añadido `Añadir todos` dentro de la tarjeta móvil de trofeos y premios.
+- Añadidos controles rápidos `+1`, `+5` y `+10` para goles, asistencias y partidos de la última temporada.
+- Sincronizados los cambios rápidos con los totales de carrera y el historial de `Deshacer`.
+- Actualizada la versión del userscript a `5.1.0` para que sus gestores detecten B5.1.
+
 ## B5 — Beta 5
 
 - Creado un panel exclusivo para pantallas pequeñas en lugar de reutilizar la interfaz de escritorio comprimida.
