@@ -1,5 +1,23 @@
 # Changelog
 
+## O1 — Oficial 1
+
+- Reconstruido el panel móvil como un dashboard con navegación independiente para Inicio, Especiales, Logros y Clubes.
+- Añadidos `OVR 99 Freeze`, `Ganar todo siempre`, `Modo Dios` y un control para pausar todos los especiales.
+- Añadido un backup automático único antes de activar cualquier especial móvil.
+- Añadida detección automática de temporadas para completar solamente los trofeos y awards faltantes, sin duplicarlos.
+- Rediseñados todos los paneles con fondo negro y `#009797` como identidad neón oficial.
+- Eliminada la etiqueta beta de la aplicación, documentación, consola y manifiesto de actualización.
+- Publicado el userscript `6.0.0`; el número continúa desde B5.1 para que los gestores móviles reciban O1 automáticamente.
+- Sustituida la `C` del panel y el lanzador por la bandera de la nacionalidad real del jugador.
+- Añadidos rangos visuales de OVR: bronce, plata, oro, diamante, élite morado y carta especial 99.
+- Añadida entrada manual de cantidades a los controles `+1`, `+5` y `+10` de estadísticas móviles.
+- Añadido `addLegitSeason()` / `als()`: completa trofeos y solamente los premios compatibles con la posición; los demás premios conservan su botón manual.
+- Los especiales automáticos ahora respetan la posición del jugador en cada temporada.
+- Añadidos filtros móviles combinables por país, competición, división y reputación al reemplazar ofertas.
+- Añadido `decisions.outcome()` para preparar un resultado positivo, negativo o automático en la decisión aleatoria actual usando el mismo RNG de Copero.
+- Añadidos los atajos `decisions.good()`, `decisions.bad()` y `decisions.auto()`; el resultado se consume en una sola decisión y no queda como configuración permanente.
+
 ## B5.1 — Beta 5.1
 
 - Añadido `Añadir todos` dentro de la tarjeta móvil de trofeos y premios.

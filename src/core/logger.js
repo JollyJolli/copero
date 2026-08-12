@@ -27,12 +27,13 @@ export class Logger {
   }
   welcome() {
     consoleBrand(this.config.version);
-    console.log('%cBETA 5.1 · MOBILE FIRST', T.section);
+    console.log('%cOFICIAL 1 · NEON EDITION', T.section);
     console.log('%cEditor conectado a la partida actual. Los cambios permanecen en esta pestaña.', T.muted);
     console.log('\n%c ● ACTIVO %c API %c ' + this.config.prefix, T.success, T.chip, T.command);
     console.log('%c   ABRIR PANEL  %c' + `${this.config.prefix}panel()`, T.muted, T.command);
     console.log('%c   VER COMANDOS %c' + `${this.config.prefix}help`, T.muted, T.command);
     console.log('%c   CREAR BACKUP %c' + `${this.config.prefix}backup("antes")`, T.muted, T.command);
+    console.log('%c   DECISIÓN BUENA %c' + `${this.config.prefix}decisions.good()`, T.muted, T.command);
     console.groupEnd();
   }
   success(message, value = '') { this.print('success', message, value); }

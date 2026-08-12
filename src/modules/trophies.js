@@ -2,6 +2,29 @@ import { command, resolveSeasonIndexes, recalculateTotals } from './helpers.js';
 import { showAchievementCelebration } from '../ui/achievement-celebration.js';
 export const TROPHIES = ['league','cup','continental_primary','continental_secondary','club_world_cup','national_continental','world_cup'];
 export const AWARDS = ['ballon_dor','golden_boot','golden_glove'];
+const GOALKEEPERS = new Set(['GK','POR','GOALKEEPER','PORTERO']);
+const ATTACKERS = new Set(['ST','CF','LW','RW','DC','SD','EI','ED','DELANTERO','FORWARD','WINGER']);
+export function legitAwardsForPosition(position) {
+  const normalized = String(position ?? '').trim().toUpperCase();
+  if (GOALKEEPERS.has(normalized)) return ['ballon_dor','golden_glove'];
+  if (ATTACKERS.has(normalized)) return ['ballon_dor','golden_boot'];
+  return ['ballon_dor'];
+}
+function completeSeason(context, allowedAwards, label) {
+  let addedTrophies = 0, addedAwards = 0; const entries = [];
+  const state = context.stateManager.mutate(label, draft => {
+    const [index] = resolveSeasonIndexes(draft, 'last'), season = draft.seasons[index];
+    season.trophies ??= []; season.awards ??= [];
+    const missingTrophies = TROPHIES.filter(id => !season.trophies.includes(id));
+    const missingAwards = allowedAwards.filter(id => !season.awards.includes(id));
+    season.trophies.push(...missingTrophies); season.awards.push(...missingAwards);
+    addedTrophies = missingTrophies.length; addedAwards = missingAwards.length;
+    entries.push(...missingTrophies.map(id => ({ id, kind:'trophy' })), ...missingAwards.map(id => ({ id, kind:'award' })));
+    draft.totals = recalculateTotals(draft);
+  });
+  showAchievementCelebration(entries); context.logger.success(`Temporada completada: +${addedTrophies} trofeos y +${addedAwards} premios.`);
+  return state;
+}
 function registerCollection(registry, plural, singular, known, legacyAdd, legacyRemove) {
   command(registry, { name: `${plural}.add`, category: plural, description: `Añade ${singular}.`, usage: `careerEditor.${plural}.add(id)`, aliases: [legacyAdd], execute: ({ stateManager, config }, id, options = {}) => { id = String(id); if (config.safeMode && !known.includes(id)) throw new Error(`${singular} desconocido: ${id}.`); const amount = Number(options.amount ?? 1), added = []; const state = stateManager.mutate(`${singular} añadido`, d => { for (const i of resolveSeasonIndexes(d, options.season ?? 'last')) { const list = d.seasons[i][plural] ??= []; for (let n = 0; n < amount; n++) if (options.allowDuplicates || !list.includes(id)) { list.push(id); added.push({ id, kind: plural === 'awards' ? 'award' : 'trophy' }); } } d.totals = recalculateTotals(d); }); showAchievementCelebration(added); return state; } });
   command(registry, { name: `${plural}.remove`, category: plural, description: `Elimina ${singular}.`, usage: `careerEditor.${plural}.remove(id)`, aliases: [legacyRemove], execute: ({ stateManager }, id, selector = 'last') => stateManager.mutate(`${singular} eliminado`, d => { for (const i of resolveSeasonIndexes(d, selector)) d.seasons[i][plural] = (d.seasons[i][plural] ?? []).filter(x => x !== id); d.totals = recalculateTotals(d); }) });
@@ -12,19 +35,6 @@ function registerCollection(registry, plural, singular, known, legacyAdd, legacy
 }
 export function registerTrophies(registry) {
   registerCollection(registry, 'trophies', 'trofeo', TROPHIES, 'addTrophy', 'removeTrophy'); registerCollection(registry, 'awards', 'premio', AWARDS, 'addAward', 'removeAward');
-  command(registry, { name: 'addAllSeason', category: 'trophies', description: 'Completa los logros que faltan de la última temporada.', usage: 'careerEditor.addAllSeason()', aliases: ['aas'], execute: ({ stateManager, logger }) => {
-    let addedTrophies = 0, addedAwards = 0; const entries = [];
-    const state = stateManager.mutate('Logros faltantes añadidos a la última temporada', draft => {
-    const [index] = resolveSeasonIndexes(draft, 'last'); const season = draft.seasons[index];
-    season.trophies ??= []; season.awards ??= [];
-    const missingTrophies = TROPHIES.filter(id => !season.trophies.includes(id));
-    const missingAwards = AWARDS.filter(id => !season.awards.includes(id));
-    season.trophies.push(...missingTrophies); season.awards.push(...missingAwards);
-    addedTrophies = missingTrophies.length; addedAwards = missingAwards.length;
-    entries.push(...missingTrophies.map(id => ({ id, kind: 'trophy' })), ...missingAwards.map(id => ({ id, kind: 'award' })));
-    draft.totals = recalculateTotals(draft);
-    });
-    showAchievementCelebration(entries); logger.success(`Temporada completada: +${addedTrophies} trofeos y +${addedAwards} premios.`);
-    return state;
-  } });
+  command(registry, { name:'addAllSeason', category:'trophies', description:'Completa todos los logros que faltan de la última temporada.', usage:'careerEditor.addAllSeason()', aliases:['aas'], execute:context => completeSeason(context, AWARDS, 'Todos los logros faltantes añadidos') });
+  command(registry, { name:'addLegitSeason', category:'trophies', description:'Completa trofeos y premios compatibles con la posición.', usage:'careerEditor.addLegitSeason()', aliases:['als'], execute:context => completeSeason(context, legitAwardsForPosition(context.stateManager.get().player?.position), 'Logros legítimos añadidos') });
 }

@@ -1,7 +1,7 @@
 import { CONSOLE_THEME as T, consoleBrand, consoleSection } from '../core/console-theme.js';
 
 const META = {
-  player:['PLR','Jugador','♙'], seasons:['SEA','Temporadas','◫'], stats:['STA','Estadísticas','↗'], trophies:['TRP','Trofeos','◆'], awards:['AWD','Premios','★'], clubs:['CLB','Clubes','⌕'], backups:['BKP','Backups','□'], presets:['PRE','Presets','◇'], data:['DAT','Datos','↓'], runtime:['SYS','Sistema','⚙'], core:['CORE','General','C']
+  player:['PLR','Jugador','♙'], seasons:['SEA','Temporadas','◫'], stats:['STA','Estadísticas','↗'], trophies:['TRP','Trofeos','◆'], awards:['AWD','Premios','★'], clubs:['CLB','Clubes','⌕'], decisions:['DEC','Decisiones','⚖'], backups:['BKP','Backups','□'], presets:['PRE','Presets','◇'], data:['DAT','Datos','↓'], runtime:['SYS','Sistema','⚙'], core:['CORE','General','C']
 };
 
 export class HelpRenderer {
@@ -18,7 +18,7 @@ export class HelpRenderer {
       console.log(`%c ${glyph} %c ${code} %c ${label.padEnd(17)} %c ${String(count).padStart(2,'0')} comandos %c ${this.config.prefix}helpFor("${category}")`, 'color:#fb7185;font-weight:950', T.chip, T.text, T.muted, T.command);
     }
     consoleSection('Inicio rápido');
-    for (const [label,example] of [['JUGADOR',`${this.config.prefix}overall(99)`],['EDITOR',`${this.config.prefix}player.set({ age: 24, position: "ST" })`],['MERCADO',`${this.config.prefix}clubs.search("Barcelona")`],['SEGURIDAD',`${this.config.prefix}backup("antes")`],['INTERFAZ',`${this.config.prefix}panel()`]]) console.log(`%c ${label.padEnd(10)} %c ${example}`, T.chip, T.command);
+    for (const [label,example] of [['JUGADOR',`${this.config.prefix}overall(99)`],['EDITOR',`${this.config.prefix}player.set({ age: 24, position: "ST" })`],['DECISIÓN',`${this.config.prefix}decisions.good()`],['MERCADO',`${this.config.prefix}clubs.search("Barcelona")`],['SEGURIDAD',`${this.config.prefix}backup("antes")`],['INTERFAZ',`${this.config.prefix}panel()`]]) console.log(`%c ${label.padEnd(10)} %c ${example}`, T.chip, T.command);
     console.log('\n%c TIP %c Detalle de un comando: %c' + `${this.config.prefix}helpCommand("overall")`, T.info, T.muted, T.command);
     console.groupEnd(); return undefined;
   }

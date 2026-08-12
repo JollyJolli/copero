@@ -1,6 +1,7 @@
 import { PANEL_CSS } from './styles.js';
 import { compatibleOffers } from '../modules/clubs.js';
 import { isSmallScreen, openMobilePanel } from './mobile-panel.js';
+import { overallTier, playerFlag } from './player-presentation.js';
 
 const escapeHtml = value => String(value ?? '—').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
 const number = value => Number(value) || 0;
@@ -32,7 +33,7 @@ const navigation = [
 function shellMarkup(version) {
   return `<style>${PANEL_CSS}</style><section class="cee-app" role="dialog" aria-label="Copero Career Editor">
     <aside class="cee-sidebar">
-      <div class="cee-logo"><span>C</span><div><strong>COPERO</strong><small>EDITOR ${escapeHtml(version)}</small></div></div>
+      <div class="cee-logo"><span class="cee-player-flag">🌍</span><div><strong>COPERO</strong><small>EDITOR ${escapeHtml(version)}</small></div></div>
       <nav class="cee-nav">${navigation.map(([id,label], index) => `<button data-route="${id}" class="${index ? '' : 'is-active'}"><i>${icon(id)}</i><span>${label}</span></button>`).join('')}</nav>
       <div class="cee-sidebar-foot"><span class="cee-status-dot"></span><div><strong>Conectado</strong><small class="cee-prefix"></small></div></div>
     </aside>
@@ -41,7 +42,7 @@ function shellMarkup(version) {
       <main class="cee-content" aria-live="polite"></main>
       <footer class="cee-mobile-nav">${navigation.map(([id,label], index) => `<button data-route="${id}" class="${index ? '' : 'is-active'}"><i>${icon(id)}</i><span>${label}</span></button>`).join('')}</footer>
     </section>
-    <button class="cee-dock" data-action="restore"><span>C</span><strong class="cee-dock-name">Career Editor</strong><small class="cee-dock-ovr">— OVR</small></button>
+    <button class="cee-dock" data-action="restore"><span class="cee-player-flag">🌍</span><strong class="cee-dock-name">Career Editor</strong><small class="cee-dock-ovr">— OVR</small></button>
     <div class="cee-toast" role="status"></div>
   </section>`;
 }
@@ -53,7 +54,7 @@ function dashboardView(state, history) {
     <article class="cee-player-hero">
       <div class="cee-hero-glow"></div><div class="cee-avatar">${escapeHtml((player.lastName || 'J').slice(0,1).toUpperCase())}</div>
       <div class="cee-player-copy"><span class="cee-chip">${escapeHtml(player.position)}</span><h2>${escapeHtml(player.lastName || 'Jugador')}</h2><p>#${escapeHtml(player.preferredNumber)} · ${escapeHtml(player.currentTeamId ?? state.currentTeamId ?? 'Sin club')}</p></div>
-      <div class="cee-rating"><small>OVR</small><strong>${escapeHtml(player.overall)}</strong><span>${escapeHtml(player.age)} años</span></div>
+      <div class="cee-rating cee-ovr-${overallTier(player.overall)}"><small>OVR</small><strong>${escapeHtml(player.overall)}</strong><span>${escapeHtml(player.age)} años</span></div>
     </article>
     <div class="cee-stat-grid">
       ${[['PJ',totals.appearances,'Partidos'],['GLS',totals.goals,'Goles'],['AST',totals.assists,'Asistencias'],['VAL',money(player.marketValue),'Valor']].map(([tag,value,label]) => `<article class="cee-stat-card"><span>${tag}</span><strong>${escapeHtml(value)}</strong><small>${label}</small></article>`).join('')}
@@ -169,6 +170,7 @@ export function openPanel(context, api) {
       const state = context.stateManager.get(); const history = context.historyManager.list();
       const titles = { dashboard:'Inicio', player:'Jugador', clubs:'Mercado de clubes', commands:'Centro de comandos', career:'Carrera', data:'Datos y backups' };
       root.querySelector('.cee-page-title').textContent = titles[route];
+      const flag = playerFlag(state); root.querySelectorAll('.cee-player-flag').forEach(element => { element.textContent = flag; }); const launcher = document.getElementById('copero-career-editor-launcher'); if (launcher) launcher.textContent = flag;
       root.querySelector('.cee-dock-name').textContent = state.player?.lastName || 'Career Editor';
       root.querySelector('.cee-dock-ovr').textContent = `${state.player?.overall ?? '—'} OVR`;
       root.querySelectorAll('[data-route]').forEach(button => button.classList.toggle('is-active', button.dataset.route === route));
@@ -233,4 +235,4 @@ export function openPanel(context, api) {
   document.documentElement.append(host); context.runtime.panelHost = host; enableDrag(app, root.querySelector('.cee-topbar')); render(); return host;
 }
 
-export function closePanel(context) { context.runtime.panelHost?.remove(); context.runtime.panelHost = null; }
+export function closePanel(context) { context.runtime.panelHost?.__ceeCleanup?.(); context.runtime.panelHost?.remove(); context.runtime.panelHost = null; }

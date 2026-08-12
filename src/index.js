@@ -5,7 +5,10 @@ import { HistoryManager } from './core/history-manager.js'; import { BackupManag
 import { CommandRegistry } from './core/command-registry.js'; import { CommandHandler } from './core/command-handler.js'; import { ErrorHandler, installFailureApi } from './core/error-handler.js'; import { attachMethods } from './core/utilities.js';
 import { registerPlayer } from './modules/player.js'; import { registerSeasons } from './modules/seasons.js'; import { registerStats } from './modules/stats.js'; import { registerTrophies } from './modules/trophies.js';
 import { ClubCatalog, registerClubs } from './modules/clubs.js'; import { registerImportExport } from './modules/import-export.js'; import { registerPresets } from './modules/presets.js'; import { registerWatcher } from './modules/watcher.js'; import { registerCore } from './modules/core-commands.js';
+import { registerMobileSpecials } from './modules/mobile-specials.js';
+import { registerDecisions } from './modules/decisions.js';
 import { HelpRenderer } from './help/help-renderer.js'; import { openPanel, closePanel } from './ui/panel.js'; import { openClubPicker, closeClubPicker } from './ui/club-picker.js';
+import { playerCountryIso, playerFlag } from './ui/player-presentation.js';
 import { createUpdater } from './core/updater.js';
 
 function installCareerEditor() {
@@ -15,7 +18,7 @@ function installCareerEditor() {
     const validator = new Validator(CONFIG), historyManager = new HistoryManager(CONFIG.maxHistoryEntries), locator = new ReactLocator(CONFIG, runtime);
     const stateManager = new StateManager(locator, validator, historyManager, logger), backupManager = new BackupManager(stateManager), registry = new CommandRegistry(), catalog = new ClubCatalog(stateManager), help = new HelpRenderer(registry, CONFIG);
     let api; const context = { config: CONFIG, runtime, stateManager, historyManager, backupManager, validator, logger, registry, errorHandler, catalog }; const panels = { open: ctx => openPanel(ctx, api), close: closePanel };
-    registerPlayer(registry); registerSeasons(registry); registerStats(registry); registerTrophies(registry); registerClubs(registry, catalog); registerImportExport(registry); registerPresets(registry); registerWatcher(registry); registerCore(registry, help, panels);
+    registerPlayer(registry); registerSeasons(registry); registerStats(registry); registerTrophies(registry); registerClubs(registry, catalog); registerImportExport(registry); registerPresets(registry); registerWatcher(registry); registerMobileSpecials(registry); registerDecisions(registry); registerCore(registry, help, panels);
     const handler = new CommandHandler(registry, context); api = { __coperoCareerEditor: true, version: CONFIG.version }; const namespaces = {};
     for (const registered of registry.list()) {
       const parts = registered.name.split('.');
@@ -35,10 +38,12 @@ function installCareerEditor() {
       CONFIG.prefix = next.prefix; runtime.globalName = next.name;
       logger.success(`Prefijo temporal cambiado. Ahora usa ${next.prefix}help`); return api;
     };
-    api.destroy = ({ silent = false } = {}) => { handler.run('unwatch'); handler.run('unfreezeAll'); closePanel(context); closeClubPicker(context); const activeName = runtime.globalName; try { delete window[activeName]; } catch { window[activeName] = undefined; } if (!silent) logger.success('Editor desinstalado.'); return true; };
+    api.destroy = ({ silent = false } = {}) => { clearInterval(runtime.launcherFlagTimer); handler.run('decisions.auto'); handler.run('mobileSpecials.stopAll'); handler.run('unwatch'); handler.run('unfreezeAll'); closePanel(context); closeClubPicker(context); const activeName = runtime.globalName; try { delete window[activeName]; } catch { window[activeName] = undefined; } if (!silent) logger.success('Editor desinstalado.'); return true; };
     runtime.update = createUpdater({ config: CONFIG, runtime, logger, errorHandler, getApi: () => api });
     Object.defineProperties(api, { prefix: { enumerable: true, get() { return CONFIG.prefix; } }, help: { enumerable: true, get() { return errorHandler.guard('help', () => help.overview()); } }, status: { enumerable: true, get() { return handler.run('summary'); } }, get: { enumerable: true, get() { return handler.run('inspect'); } } });
     window[globalName] = api;
+    let flagAttempts = 0; const syncLauncherFlag = () => { if (++flagAttempts > 240) return clearInterval(runtime.launcherFlagTimer); const launcher = document.getElementById('copero-career-editor-launcher'); if (!launcher) return; try { const state = stateManager.get(); if (!playerCountryIso(state)) return; launcher.textContent = playerFlag(state); clearInterval(runtime.launcherFlagTimer); } catch {} };
+    runtime.launcherFlagTimer = setInterval(syncLauncherFlag, 500); syncLauncherFlag();
     try { if (CONFIG.autoBackupOnInstall) backupManager.create('original'); } catch (error) { logger.warning('Editor instalado sin backup original. Abre una partida y usa careerEditor.backup("original").', error.message); }
     logger.welcome(); emitInstallSignature(); return api;
   } catch (error) {
